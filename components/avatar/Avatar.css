@@ -1,0 +1,58 @@
+.avatar-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100px;
+  height: 100px;
+}
+
+.avatar-face {
+  width: 80px;
+  height: 80px;
+  background-color: var(--Neutral-20);
+  border-radius: 50%;
+  position: relative;
+  border: 3px solid var(--accent-blue);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 0 10px rgba(0,0,0,0.3);
+  overflow: hidden;
+  transition: transform 0.1s ease-out, background-color 0.3s ease-in-out;
+}
+
+.avatar-face.speaking {
+    background-color: var(--Blue-800);
+}
+
+.avatar-eye {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  border-radius: 50%;
+  top: 28px;
+  transition: transform 0.2s ease-in-out;
+}
+
+.avatar-face.speaking .avatar-eye {
+    transform: scale(1.1);
+}
+
+.avatar-eye.left {
+  left: 22px;
+}
+
+.avatar-eye.right {
+  right: 22px;
+}
+
+.avatar-mouth {
+  position: absolute;
+  width: 25px;
+  height: 2px;
+  background-color: white;
+  border-radius: 5px;
+  bottom: 25px;
+  left: 50%;
+  margin-left: -12.5px;
+  transition: height 0.08s ease-out;
+  transform-origin: center;
+}

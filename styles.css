@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+<<<<<<< HEAD
+=======
+
+  @keyframes marquee {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(-33.333%);
+    }
+  }
+
+  .animate-marquee {
+    display: flex;
+    animation: marquee 40s linear infinite;
+    will-change: transform;
+  }
+>>>>>>> 2e8ae07bc0c57578ead9bb0e095e5ed797e62558
+}
