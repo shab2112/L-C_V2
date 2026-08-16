@@ -120,9 +120,28 @@ Create a `.env` file in the project root with the following variables:
 # =================================
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key-here
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 
 # =================================
-# GOOGLE AI CONFIGURATION
+# DARIE CHAT / TEXT GENERATION VIA NVIDIA NIM
+# =================================
+VITE_NVIDIA_API_KEY=your-nvidia-api-key-here
+VITE_NVIDIA_MODEL=z-ai/glm-5.2
+VITE_NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_API_KEY=your-nvidia-api-key-here
+
+# =================================
+# NODE API
+# =================================
+VITE_API_BASE_URL=http://127.0.0.1:3001
+NODE_ALLOW_INSECURE_TLS=true
+
+# CRM tables used by the Node backend:
+# crm_leads, crm_duplicate_leads, enquiries
+
+# =================================
+# OPTIONAL LEGACY GEMINI CONFIGURATION FOR VISION/OCR
 # =================================
 VITE_GEMINI_API_KEY=your-gemini-api-key-here
 API_KEY=your-gemini-api-key-here

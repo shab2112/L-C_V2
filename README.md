@@ -406,8 +406,20 @@ Create a `.env` file in the project root:
 # Supabase
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 
-# Google Gemini AI
+# DARIE chat / text generation via NVIDIA NIM
+VITE_NVIDIA_API_KEY=your-nvidia-api-key
+VITE_NVIDIA_MODEL=z-ai/glm-5.2
+VITE_NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_API_KEY=your-nvidia-api-key
+
+# Node API
+VITE_API_BASE_URL=http://127.0.0.1:3001
+NODE_ALLOW_INSECURE_TLS=true
+
+# Optional legacy Gemini AI for vision/OCR features
 VITE_GEMINI_API_KEY=your-gemini-api-key
 API_KEY=your-gemini-api-key
 
@@ -415,6 +427,16 @@ API_KEY=your-gemini-api-key
 VITE_GOOGLE_API_KEY=your-google-maps-api-key
 VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 ```
+
+Run the frontend and Node API in separate terminals during local development:
+
+```bash
+npm run server
+npm run dev
+```
+
+The CRM migration creates dedicated tables named `crm_leads` and `crm_duplicate_leads` so any existing `leads` table remains untouched.
+`NODE_ALLOW_INSECURE_TLS=true` is a local Windows certificate-chain workaround. Set it to `false` once Node trusts your local CA chain.
 
 ### Supabase Secrets (Backend)
 

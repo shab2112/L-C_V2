@@ -17,7 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
   // PROJECTS list page is (usually) LIGHT background -> Navbar white/light.
 
   const isLightPage = ['PROJECTS'].includes(currentPage);
-  const isDarkPage = ['HOME', 'SHAHRUKHZ', 'ALTAIR_52', 'MASAAR_3', 'ARTIZE_62', 'AVIOR', 'LOGIN', 'REGISTER', 'FORGOT_PASSWORD', 'CLIENT_OTP'].includes(currentPage);
+  const isDarkPage = ['HOME', 'ABOUT_US', 'BLOGS', 'SHAHRUKHZ', 'ALTAIR_52', 'MASAAR_3', 'ARTIZE_62', 'AVIOR', 'LOGIN', 'REGISTER', 'FORGOT_PASSWORD', 'CLIENT_OTP'].includes(currentPage);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -35,35 +35,32 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
 
   let navBackgroundClass = '';
   let textColorClass = '';
-  let logoClass = '';
   const transitionClass = 'transition-all duration-300';
 
   if (scrolled) {
-    navBackgroundClass = 'bg-lc-navy/95 backdrop-blur-md shadow-lg border-b border-white/10';
-    textColorClass = 'text-white';
-    logoClass = ''; // Default golden/white logo handling
+    navBackgroundClass = 'bg-[#F5F0E6]/95 backdrop-blur-md shadow-lg border-b border-[#E6DED0]';
+    textColorClass = 'text-[#122238]';
   } else {
     if (isLightPage) {
-      navBackgroundClass = 'bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-200';
+      navBackgroundClass = 'bg-[#F5F0E6]/95 backdrop-blur-md shadow-sm border-b border-[#E6DED0]';
       textColorClass = 'text-lc-navy';
-      logoClass = 'brightness-0 invert-0'; // Make logo dark
     } else {
       // Dark Page (Home, etc)
       navBackgroundClass = 'bg-transparent'; // Let the Royal Blue shine through
       textColorClass = 'text-white';
-      logoClass = ''; // Keep original logo
     }
   }
 
-  const hoverColorClass = isLightPage && !scrolled ? 'hover:text-lc-gold' : 'hover:text-lc-gold';
-  const activeColorClass = 'text-lc-gold font-bold';
+  const hoverColorClass = 'hover:text-[#6D2636]';
+  const activeColorClass = 'text-[#6D2636] font-bold';
+  const showLogoRibbon = isDarkPage && !scrolled;
 
   // Badge style
   const badgeClass = (isLightPage && !scrolled)
     ? 'bg-lc-navy/5 border-lc-navy/10 text-lc-navy/90'
     : 'bg-white/10 border-white/20 text-white/90 shadow-sm';
 
-  const mobileButtonClass = (isLightPage && !scrolled) ? 'text-lc-navy' : 'text-white';
+  const mobileButtonClass = (isLightPage && !scrolled) || scrolled ? 'text-[#122238]' : 'text-white';
 
   const handleNav = (page: Page, e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -83,22 +80,44 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
 
   return (
     <>
-      <nav className={`fixed top-0 w-full z-[100] px-4 sm:px-6 py-4 sm:py-6 ${transitionClass} ${navBackgroundClass}`}>
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+      <nav className={`fixed top-0 w-full z-[100] px-0 py-4 sm:py-6 ${transitionClass} ${navBackgroundClass}`}>
+        <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
-          <div
-            className="flex items-center gap-2 cursor-pointer flex-shrink-0 z-[101] relative"
-            onClick={(e) => handleNav('HOME', e)}
-          >
-            <img
-              src="/lockwood-assets/general/logo.png"
-              alt="Lockwood & Carter"
-              className={`h-16 w-auto object-contain transition-all duration-300 ${logoClass}`}
-            />
-            {/* Restored Text Logo */}
-            <span className={`font-script text-3xl pt-1 whitespace-nowrap hidden sm:block animate-handwriting ${logoClass ? 'text-lc-navy' : 'gold-text-embossed gold-text-embossed'}`}>
-              Lockwood & Carter
-            </span>
+          <div className="relative z-[101] flex-shrink-0">
+            <button
+              type="button"
+              className="relative flex min-h-14 items-center p-0 transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#B49A68]"
+              onClick={(e) => handleNav('HOME', e)}
+              aria-label="Lockwood & Carter home"
+            >
+              <span className="relative inline-flex flex-shrink-0 items-center justify-center">
+                {showLogoRibbon && (
+                  <span
+                    className="pointer-events-none absolute left-1/2 top-[-16px] -z-10 h-[92px] w-[88px] -translate-x-1/2 rounded-b-full bg-[#F5F0E6]/95 backdrop-blur-sm sm:top-[-24px] sm:h-[108px] sm:w-[96px]"
+                    aria-hidden="true"
+                  />
+                )}
+                <img
+                  src="/lockwood-assets/general/brand/lockwood-carter-monogram-transparent.png"
+                  alt=""
+                  className={`h-auto object-contain transition-all duration-300 ${scrolled ? 'w-12 md:w-14' : 'w-14 md:w-16'}`}
+                />
+              </span>
+              <span
+                className={`overflow-hidden transition-all duration-500 ease-out ${
+                  scrolled
+                    ? 'ml-1 max-w-[118px] translate-x-0 opacity-100 sm:max-w-[134px] md:max-w-[150px]'
+                    : 'ml-0 max-w-0 -translate-x-2 opacity-0'
+                }`}
+                aria-hidden={!scrolled}
+              >
+                <img
+                  src="/lockwood-assets/general/brand/lockwood-carter-wordmark.png"
+                  alt=""
+                  className="mt-2 h-auto w-[118px] max-w-none object-contain sm:w-[134px] md:w-[150px]"
+                />
+              </span>
+            </button>
           </div>
 
           {/* Desktop Menu */}
@@ -133,7 +152,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
             <Tooltip content="Access your client portal" position="bottom">
               <button
                 onClick={(e) => handleNav('LOGIN', e)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-lc-gold to-orange-500 hover:from-lc-goldHover hover:to-orange-600 text-white transition-all text-sm shadow-md"
+                className="flex min-h-11 items-center gap-2 border border-[#B49A68]/70 bg-[#F5F0E6] px-4 py-2 rounded-[2px] text-[#122238] transition-colors text-sm font-semibold hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B49A68]"
               >
                 <span className="whitespace-nowrap">Register / Login</span>
                 <User size={14} />
@@ -185,7 +204,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
 
             <button
               onClick={(e) => handleNav('LOGIN', e)}
-              className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-lc-gold hover:bg-yellow-500 text-white transition-all text-base font-medium w-full"
+              className="flex items-center justify-between gap-3 px-4 py-3 rounded-[2px] bg-[#F5F0E6] hover:bg-white text-[#122238] border border-[#B49A68]/70 transition-colors text-base font-semibold w-full"
             >
               <span>Register / Login</span>
               <User size={18} />

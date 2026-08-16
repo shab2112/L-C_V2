@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Sparkles, Send, Bot, User, ExternalLink, X, MessageSquare, Maximize2, Minimize2, ArrowRight, Phone, ShieldCheck } from 'lucide-react';
-import { sendMessageToGemini } from '../../services/geminiService';
+import { BarChart3, CircleDollarSign, Play, Send, Bot, ExternalLink, X, MessageSquare, ArrowRight, Phone, ShieldCheck } from 'lucide-react';
+import { buildDarieEnquiryPayload, sendMessageToDarie } from '../../services/geminiService';
 import { Message, ChatState, Page } from '../../lockwood-types';
 import { Tooltip } from '../Tooltip';
 
@@ -9,6 +9,10 @@ interface HeroProps {
 }
 
 export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
   // Chat State
   const [messages, setMessages] = useState<Message[]>([
     { role: 'model', text: '<h3>Welcome to Lockwood & Carter.</h3><p>I am the L&C Digital Assistant. Our senior brokers are currently active in the market, but I can provide you with immediate property comparisons, ROI data, and project brochures. How can I assist your investment journey today?</p>', timestamp: Date.now() }
@@ -17,6 +21,18 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
   const [chatState, setChatState] = useState<ChatState>(ChatState.IDLE);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const darieEnquiryIdRef = useRef<string | null>(null);
+  const darieEnquiryEmailRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const updateReducedMotion = () => setReducedMotion(media.matches);
+
+    updateReducedMotion();
+    media.addEventListener('change', updateReducedMotion);
+
+    return () => media.removeEventListener('change', updateReducedMotion);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -28,15 +44,48 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
     }
   }, [messages, isChatOpen]);
 
+  useEffect(() => {
+    const openDarieChat = () => setIsChatOpen(true);
+    window.addEventListener('lc-open-darie-chat', openDarieChat);
+    return () => window.removeEventListener('lc-open-darie-chat', openDarieChat);
+  }, []);
+
+  const submitDarieEnquiry = async (completedMessages: Message[]) => {
+    const enquiryPayload = buildDarieEnquiryPayload(completedMessages);
+    const email = enquiryPayload?.email?.toLowerCase();
+    if (!enquiryPayload || !email) return;
+
+    const existingId = darieEnquiryEmailRef.current === email ? darieEnquiryIdRef.current : null;
+    const response = await fetch('/api/enquiries', {
+      method: existingId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...(existingId ? { id: existingId } : {}),
+        ...enquiryPayload,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`DARIE enquiry capture failed with ${response.status}: ${await response.text()}`);
+    }
+
+    const data = await response.json();
+    if (data?.success && data.data?.id) {
+      darieEnquiryIdRef.current = data.data.id;
+      darieEnquiryEmailRef.current = email;
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMsg: Message = { role: 'user', text: input, timestamp: Date.now() };
-    setMessages(prev => [...prev, userMsg]);
+    const nextUserMessages = [...messages, userMsg];
+    setMessages(nextUserMessages);
     setInput('');
     setChatState(ChatState.LOADING);
 
-    const response = await sendMessageToGemini(messages, input);
+    const response = await sendMessageToDarie(messages, input);
 
     const botMsg: Message = {
       role: 'model',
@@ -44,8 +93,13 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
       timestamp: Date.now(),
       groundingMetadata: response.groundingMetadata
     };
-    setMessages(prev => [...prev, botMsg]);
+    const completedMessages = [...nextUserMessages, botMsg];
+    setMessages(completedMessages);
     setChatState(ChatState.SUCCESS);
+
+    submitDarieEnquiry(completedMessages).catch(error => {
+      console.warn('Failed to capture DARIE enquiry:', error);
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -58,75 +112,71 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
 
   return (
     
-    <section className="relative min-h-screen bg-gradient-to-b from-[#1e3a8a] via-[#0a192f] to-[#020617] pt-32 pb-20 overflow-hidden flex flex-col items-center justify-center">
-      {/* Cinematic Background Image */}
-      <div className="absolute inset-0 z-0">
+    <section className="relative min-h-[100svh] overflow-hidden bg-[#101820] lg:h-[100svh] lg:min-h-[720px] lg:max-h-[960px]">
+      {/* Cinematic Background Video */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
         <img
           src="/lockwood-assets/general/hero_image.png"
           alt="Luxury Dubai Penthouse"
-          className="w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover opacity-40"
         />
-        {/* Sophisticated Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-lc-navy/80 via-lc-navy/40 to-lc-navy/90"></div>
+        {!reducedMotion && !videoFailed && (
+          <video
+            src="/lockwood-assets/general/hero_video.mp4"
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-out ${videoReady ? 'opacity-100' : 'opacity-0'}`}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster="/lockwood-assets/general/hero_image.png"
+            aria-hidden="true"
+            onCanPlay={() => setVideoReady(true)}
+            onError={() => setVideoFailed(true)}
+          />
+        )}
+        {/* Directional cinematic overlay, matched to the reference hero video treatment */}
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(16,24,32,0.92)_0%,rgba(16,24,32,0.74)_34%,rgba(16,24,32,0.28)_58%,rgba(16,24,32,0.035)_84%),linear-gradient(180deg,rgba(16,24,32,0.02)_0%,rgba(16,24,32,0.38)_100%)]"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,24,32,0.74)_0%,rgba(16,24,32,0.62)_44%,rgba(16,24,32,0.88)_100%),linear-gradient(90deg,rgba(16,24,32,0.86)_0%,rgba(16,24,32,0.3)_100%)] md:hidden"></div>
       </div>
 
-      {/* Trust Badge - Positioned at top on mobile */}
-      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 md:relative md:top-auto md:left-auto md:translate-x-0 md:mt-20 px-4">
-        <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-md text-white text-[10px] md:text-sm font-semibold px-3 md:px-5 py-2 rounded-full tracking-[0.05em] md:tracking-[0.1em] uppercase shadow-2xl whitespace-nowrap">
-          <ShieldCheck size={12} className="text-lc-gold flex-shrink-0" />
+      <div className="relative z-10 mx-auto flex min-h-[100svh] w-[min(calc(100%_-_40px),1440px)] flex-col items-start justify-center px-0 pb-16 pt-28 text-left sm:pb-20 sm:pt-32 lg:h-full lg:min-h-0 lg:px-12 lg:pb-16 lg:pt-28 xl:pt-32">
+        <div className="mb-5 inline-flex min-h-11 items-center gap-2 border border-white/20 bg-white/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-white shadow-2xl backdrop-blur-md md:px-5 md:text-sm">
+          <ShieldCheck size={12} className="flex-shrink-0 text-lc-gold" />
           <span className="whitespace-nowrap">RERA Registered Brokerage #53772</span>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 text-center z-10 flex flex-col items-center justify-center h-full pt-20">
-
-        {/* Headline - Matched to Screenshot Layout */}
-        <h1 className="text-5xl md:text-7xl lg:text-9xl font-bold text-white mb-8 leading-[0.9] tracking-tighter font-serif">
-          Experts in <br />
-          <span className="gold-text-3d">Dubai Real Estate</span>
+        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#B49A68] md:text-sm">
+          Dubai Property Advisory
+        </p>
+        <h1 className="mb-0 max-w-[680px] font-serif text-[clamp(44px,6.2vw,88px)] font-normal leading-[1.01] text-white">
+          Find your place in Dubai.
         </h1>
-        <p className="text-white text-xl block mt-2 mb-8">Leading property advisors, powered by smart tools.</p>
-
-
-        {/* Subheadline - Adjusted opacity for contrast */}
-        <p className="text-blue-100/90 text-lg md:text-2xl max-w-3xl mx-auto mb-6 leading-relaxed font-light tracking-wide">
-          Experience the future of property search with the world's first Voice-Activated Real Estate Advisor.
+        <p className="mb-0 mt-6 block max-w-[560px] text-[clamp(16px,1.35vw,19px)] leading-[1.58] text-[#F5F0E6]/90">
+          Local expertise, carefully selected properties, and clear guidance for buyers and investors worldwide.
         </p>
 
-      {/* AI Badge - Exact Screenshot Match */}
-        <div className="inline-flex items-center gap-3 bg-[#0a1535]/60 border border-white/10 backdrop-blur-md text-blue-50 text-xs md:text-sm font-medium pl-5 pr-1.5 py-1.5 rounded-full mb-12 shadow-2xl shadow-blue-900/20 group cursor-default">
-          <div className="bg-transparent p-0">
-            <Sparkles size={14} className="text-lc-gold animate-pulse" fill="currentColor" />
-          </div>
-          <span className="tracking-wide">Unlock interactive Voice AI Advisor DARIE</span>
-          <Tooltip content="Sign up for exclusive features" position="bottom">
-            <button
-              onClick={() => onNavigate?.('REGISTER')}
-              className="bg-[#facc15] hover:bg-[#eab308] text-white px-4 py-1.5 rounded-full bg-gradient-to-r from-lc-gold to-orange-500 hover:from-lc-goldHover hover:to-orange-600 transition-all shadow-lg flex items-center gap-1 group-hover:scale-105 ml-2">
-              Register Now
-            </button>
-          </Tooltip>
-        </div>
 
         {/* CTAs */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 justify-items-center">
+        <div className="mt-8 flex w-full flex-col items-stretch gap-3.5 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <button
             onClick={() => onNavigate?.('PROJECTS')}
-            className="bg-lc-gold hover:bg-lc-goldHover text-white px-12 py-5 rounded-xl font-bold transition-all shadow-2xl shadow-lc-gold/30 text-lg hover:scale-105 transform duration-300 tracking-wide"
+            className="inline-flex min-h-12 items-center justify-center gap-3 rounded-[2px] border border-[#F5F0E6] bg-[#F5F0E6] px-6 py-3.5 text-sm font-semibold tracking-wide text-[#122238] transition-colors hover:bg-[#E6DED0] sm:min-w-[180px]"
           >
-            Explore Portfolio
+            <ArrowRight size={18} />
+            Explore Properties
           </button>
           <button 
             onClick={handleWhatsApp}
-            className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 px-12 py-5 rounded-xl font-bold transition-all flex items-center justify-center gap-3 text-lg hover:border-white/50"
+            className="inline-flex min-h-12 items-center justify-center gap-3 rounded-[2px] border border-[#F5F0E6]/45 bg-[#101820]/25 px-6 py-3.5 text-sm font-semibold text-[#F5F0E6] backdrop-blur-md transition-colors hover:border-[#B49A68] hover:text-white sm:min-w-[180px]"
           >
-            <Phone size={20} className="text-lc-gold" /> Consult an Expert
+            <Phone size={20} className="text-lc-gold" /> Consult an Advisor
           </button>
           {/* Watch Demo Centered as per screenshot preference often */}
           <Tooltip content="A glimpse of Dubai" position="bottom">
             <button
               onClick={() => window.open('https://youtu.be/NAW8S7wxOWA', '_blank')}
-              className="bg-transparent hover:bg-lc-gold/10 text-white border border-lc-gold/60 px-12 py-5 rounded-xl font-bold transition-all flex items-center justify-center gap-3 text-lg hover:border-lc-gold shadow-xl shadow-lc-gold/20 hover:scale-105 transform duration-300 tracking-wide"
+              className="inline-flex min-h-12 items-center justify-center gap-3 rounded-[2px] border border-[#F5F0E6]/25 bg-transparent px-6 py-3.5 text-sm font-semibold tracking-wide text-[#F5F0E6]/85 transition-colors hover:border-[#B49A68] hover:text-white sm:min-w-[150px]"
             >
               <Play size={20} fill="currentColor" className="text-lc-gold" />
               Why Invest?
@@ -136,7 +186,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
       </div>
 
       {/* Floating Chat Widget */}
-      <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4">
+      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-4">
 
         {/* Chat Window */}
         {isChatOpen && (
@@ -229,11 +279,11 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
             <div className="p-3 bg-white border-t border-gray-100">
               {messages.length === 1 && (
                 <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
-                  <button onClick={() => { setInput("Compare Emaar South vs Altair 52"); }} className="whitespace-nowrap bg-gray-50 border border-gray-200 text-[10px] text-gray-600 px-3 py-1 rounded-full hover:border-lc-gold hover:text-lc-gold transition-colors">
-                    📊 Compare Projects
+                  <button onClick={() => { setInput("Compare visible Dubai South listings"); }} className="inline-flex items-center whitespace-nowrap bg-gray-50 border border-gray-200 text-[10px] text-gray-600 px-3 py-1 rounded-full hover:border-lc-gold hover:text-lc-gold transition-colors">
+                    <BarChart3 className="mr-1 h-3 w-3" /> Compare Projects
                   </button>
-                  <button onClick={() => { setInput("3BR prices in Dubai South"); }} className="whitespace-nowrap bg-gray-50 border border-gray-200 text-[10px] text-gray-600 px-3 py-1 rounded-full hover:border-lc-gold hover:text-lc-gold transition-colors">
-                    💰 3BR Prices
+                  <button onClick={() => { setInput("3BR prices in Dubai South"); }} className="inline-flex items-center whitespace-nowrap bg-gray-50 border border-gray-200 text-[10px] text-gray-600 px-3 py-1 rounded-full hover:border-lc-gold hover:text-lc-gold transition-colors">
+                    <CircleDollarSign className="mr-1 h-3 w-3" /> 3BR Prices
                   </button>
                 </div>
               )}

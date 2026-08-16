@@ -117,47 +117,48 @@ export const FAQ: React.FC<FAQProps> = ({ onNavigate }) => {
   );
 
   return (
-    <section className="py-24 bg-[#020617]" id="faq">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Frequently Asked Questions</h2>
-          <p className="text-slate-400 text-lg">Everything you need to know about buying property in Dubai as a foreign investor</p>
-        </div>
-
-        {/* Search */}
-        <div className="relative mb-12">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-500" />
+    <section className="bg-white py-24 sm:py-28" id="faq">
+      <div className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-12 grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+          <div>
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#6D2636]">Buyer guidance</p>
+            <h2 className="mb-4 font-serif text-3xl font-normal leading-tight text-[#122238] md:text-5xl">Frequently Asked Questions</h2>
+            <p className="max-w-xl text-lg leading-relaxed text-[#292B2D]/70">Everything you need to know about buying property in Dubai as a foreign investor.</p>
           </div>
-          <input
-            type="text"
-            className="block w-full pl-12 pr-4 py-4 bg-[#0f172a] border border-white/10 rounded-xl leading-5 placeholder-gray-500 text-white focus:outline-none focus:ring-2 focus:ring-lc-gold/50 focus:border-lc-gold transition-all shadow-sm"
-            placeholder="Search FAQs..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+              <Search className="h-5 w-5 text-[#6F5A35]" />
+            </div>
+            <input
+              type="text"
+              className="block min-h-14 w-full rounded-[2px] border border-[#E6DED0] bg-white py-4 pl-12 pr-4 leading-5 text-[#122238] shadow-sm transition-all placeholder:text-[#292B2D]/45 focus:border-[#B49A68] focus:outline-none focus:ring-2 focus:ring-[#B49A68]/40"
+              placeholder="Search FAQs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
 
         {/* FAQs */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {filteredFAQs.map((faq, index) => (
             <div 
               key={index} 
-              className="bg-[#0f172a] border border-white/5 rounded-xl overflow-hidden shadow-sm hover:border-white/10 transition-colors"
+              className="overflow-hidden rounded-[4px] border border-[#E6DED0] bg-white shadow-sm transition-colors hover:border-[#B49A68]/60"
             >
               <button
-                className="w-full px-6 py-5 text-left flex justify-between items-center focus:outline-none"
+                className="flex min-h-16 w-full items-center justify-between px-5 py-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B49A68]/50 sm:px-6"
                 onClick={() => toggleFAQ(index)}
               >
-                <span className="font-semibold text-white pr-8">{faq.question}</span>
+                <span className="pr-8 font-semibold leading-snug text-[#122238]">{faq.question}</span>
                 {openIndex === index ? (
-                  <ChevronUp className="h-5 w-5 text-lc-gold flex-shrink-0" />
+                  <ChevronUp className="h-5 w-5 text-[#6D2636] flex-shrink-0" />
                 ) : (
-                  <ChevronDown className="h-5 w-5 text-lc-gold flex-shrink-0" />
+                  <ChevronDown className="h-5 w-5 text-[#6D2636] flex-shrink-0" />
                 )}
               </button>
               {openIndex === index && (
-                <div className="px-6 pb-5 text-slate-300 leading-relaxed border-t border-white/5 pt-4">
+                <div className="border-t border-[#E6DED0] px-5 pb-5 pt-4 leading-relaxed text-[#292B2D]/75 sm:px-6">
                   {faq.answer}
                 </div>
               )}
@@ -171,17 +172,15 @@ export const FAQ: React.FC<FAQProps> = ({ onNavigate }) => {
         </div>
 
         {/* Still Have Questions Box */}
-        <div className="mt-16 bg-[#0f172a] border border-white/5 rounded-2xl p-8 md:p-12 text-center text-white relative overflow-hidden group hover:border-lc-gold/20 transition-all">
-             <div className="absolute top-0 right-0 w-64 h-64 bg-lc-gold/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-lc-gold/10 transition-colors"></div>
-             
+        <div className="relative mt-16 overflow-hidden rounded-[4px] border border-[#E6DED0] bg-[#F5F0E6] p-8 text-center text-[#122238] transition-colors md:p-12">
              <div className="relative z-10">
-                <h3 className="text-2xl font-bold mb-4">Still have questions?</h3>
-                <p className="text-slate-400 mb-8 max-w-2xl mx-auto">
+                <h3 className="text-2xl font-serif font-normal mb-4">Still have questions?</h3>
+                <p className="text-[#292B2D]/70 mb-8 max-w-2xl mx-auto">
                    Our expert team is here to help you navigate the Dubai real estate market. Get personalized answers to your specific questions.
                 </p>
                 <button 
                   onClick={() => onNavigate('CONTACT_US')} 
-                  className="inline-block bg-lc-gold hover:bg-lc-goldHover text-white px-8 py-3 rounded-lg font-bold transition-all shadow-lg shadow-lc-gold/20"
+                  className="inline-flex min-h-12 items-center bg-[#122238] px-8 py-3 font-bold text-white transition-colors hover:bg-[#1D334E]"
                 >
                    Contact Support
                 </button>

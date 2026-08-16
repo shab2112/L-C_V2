@@ -7,18 +7,22 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Darie colors - Updated to blue theme
-        'brand-primary': '#1e3a5f',
-        'brand-secondary': '#2B4D87',
-        'brand-accent': '#3d5a8c',
-        'brand-gold': '#FF9500',
+        // Lockwood & Carter design.md colour tokens
+        'brand-primary': '#122238',
+        'brand-secondary': '#1D334E',
+        'brand-accent': '#1D334E',
+        'brand-gold': '#B49A68',
         'brand-text': '#FFFFFF',
-        'brand-light': '#A8B8D8',
+        'brand-light': '#E6DED0',
 
         // Lockwood colors
-        'lc-navy': '#1a2332',
-        'lc-gold': '#d4a574',
-        'lc-goldHover': '#c89557',
+        'lc-navy': '#122238',
+        'lc-gold': '#B49A68',
+        'lc-goldHover': '#6F5A35',
+      },
+      fontFamily: {
+        sans: ['Manrope', 'Arial', 'sans-serif'],
+        serif: ['"Libre Baskerville"', 'Georgia', 'serif'],
       },
     },
   },

@@ -15,6 +15,7 @@ import ShahrukhzPage from '../pages/projects/ShahrukhzPage';
 import Masaar3Page from '../pages/projects/Masaar3Page';
 import Artize62Page from '../pages/projects/Artize62Page';
 import AviorPage from '../pages/projects/AviorPage';
+import DynamicPropertyPage from '../pages/projects/DynamicPropertyPage';
 import AboutPage from '../pages/AboutPage';
 import BlogsPage from '../pages/BlogsPage';
 import ContactPage from '../pages/ContactPage';
@@ -36,6 +37,8 @@ import ClientsPage from '../pages/dashboard/ClientsPage';
 import ContractsPage from '../pages/dashboard/ContractsPage';
 import MasterPromptsPage from '../pages/dashboard/MasterPromptsPage';
 import DarieAssistantPage from '../pages/dashboard/DarieAssistantPage';
+import PropertyIntelligencePage from '../pages/dashboard/PropertyIntelligencePage';
+import CRMPage from '../pages/dashboard/CRMPage';
 
 export const createAppRouter = (
   currentUser: User | null,
@@ -77,6 +80,10 @@ export const createAppRouter = (
         {
           path: 'projects/avior',
           element: <AviorPage />,
+        },
+        {
+          path: 'projects/:propertyId',
+          element: <DynamicPropertyPage />,
         },
         {
           path: 'about',
@@ -169,12 +176,20 @@ export const createAppRouter = (
           element: <ClientsPage currentUser={currentUser} />,
         },
         {
+          path: 'crm',
+          element: <CRMPage currentUser={currentUser} />,
+        },
+        {
           path: 'contracts',
           element: <ContractsPage currentUser={currentUser} />,
         },
         {
           path: 'master-prompts',
           element: <MasterPromptsPage />,
+        },
+        {
+          path: 'property-intelligence',
+          element: <PropertyIntelligencePage />,
         },
         {
           path: 'darie-assistant',

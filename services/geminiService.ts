@@ -1,22 +1,446 @@
-// Complete Gemini Service for darie_gs
-// Merged service supporting both Lockwood and Darie components
+// AI service for DARIE and admin generation features.
+// Export names are kept for compatibility with existing imports.
 
 /// <reference types="vite/client" />
 
-import { GoogleGenAI } from "@google/genai";
+import { FeaturedProperty, formatAed, getFeaturedProperties } from '../lib/propertyIntelligenceStore';
 
 interface Message {
   role: 'user' | 'model';
   text: string;
 }
 
-const getGeminiModel = () => import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp';
+type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+type DarieIntent = 'research' | 'active' | null;
+type DariePurpose = 'investment' | 'home' | 'both' | null;
+
+type DarieLeadProfile = {
+  intent: DarieIntent;
+  purpose: DariePurpose;
+  budget: string | null;
+  area: string | null;
+  areaDescriptor: string | null;
+  propertyType: string | null;
+  bedrooms: string | null;
+  bathrooms: string | null;
+  familyNeeds: string | null;
+  specialRequirements: string | null;
+  timeline: string | null;
+  financing: string | null;
+  residency: string | null;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  contactMethod: string | null;
+  contactConsent: boolean;
+  projectInterest: string | null;
+  availabilityRequested: boolean;
+  newsletterInterest: boolean;
+  lastTopic: string | null;
+};
+
+const getGeminiVisionModel = () => import.meta.env.VITE_GEMINI_VISION_MODEL || import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp';
 const getOpenRouterModel = () => import.meta.env.VITE_OPENROUTER_MODEL || 'deepseek/deepseek-v4-pro';
 
-const buildOpenRouterMessages = (history: Message[], newMessage?: string) => [
+const buildVisiblePropertyContext = () => {
+  let properties: FeaturedProperty[] = [];
+  try {
+    properties = getFeaturedProperties();
+  } catch {
+    properties = [];
+  }
+
+  if (!properties.length) {
+    return [
+      'VISIBLE LOCKWOOD & CARTER LISTINGS:',
+      '- No admin-visible listings are currently available in the public property intelligence module.',
+      '- Do not promote, recommend, or quote details for hidden projects. If asked about a hidden or unavailable project, explain that it is not on the current public shortlist and offer to compare visible alternatives.',
+    ].join('\n');
+  }
+
+  return [
+    'VISIBLE LOCKWOOD & CARTER LISTINGS:',
+    ...properties.slice(0, 12).map(property => {
+      const price = property.price ? ` from ${formatAed(property.price)}` : ' price on request';
+      const completion = property.completionDate ? ` Handover/completion: ${property.completionDate}.` : '';
+      const amenities = property.amenities?.length ? ` Key amenities: ${property.amenities.slice(0, 4).join(', ')}.` : '';
+      return `- ${property.title}: ${property.status}, ${property.propertyType || 'property'} in ${property.location} by ${property.developer}${price}. ${property.description}${completion}${amenities}`;
+    }),
+    '',
+    'PROJECT VISIBILITY RULE:',
+    '- Only promote or recommend the visible listings above.',
+    '- If a project is hidden in admin or absent from this list, do not promote it, quote its pricing, or call it exclusive.',
+    '- If the visitor asks about a hidden/absent project, say it is not currently on the public shortlist and offer visible alternatives from the list above.',
+  ].join('\n');
+};
+
+const detectVisibleProjectTitle = (text: string) => {
+  let properties: FeaturedProperty[] = [];
+  try {
+    properties = getFeaturedProperties();
+  } catch {
+    properties = [];
+  }
+
+  const lower = text.toLowerCase();
+  return properties.find(property => lower.includes(property.title.toLowerCase()))?.title || null;
+};
+
+const createEmptyDarieProfile = (): DarieLeadProfile => ({
+  intent: null,
+  purpose: null,
+  budget: null,
+  area: null,
+  areaDescriptor: null,
+  propertyType: null,
+  bedrooms: null,
+  bathrooms: null,
+  familyNeeds: null,
+  specialRequirements: null,
+  timeline: null,
+  financing: null,
+  residency: null,
+  name: null,
+  phone: null,
+  email: null,
+  contactMethod: null,
+  contactConsent: false,
+  projectInterest: null,
+  availabilityRequested: false,
+  newsletterInterest: false,
+  lastTopic: null,
+});
+
+const toTitleCase = (value: string) =>
+  value
+    .trim()
+    .split(/\s+/)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+
+const extractNameFromText = (text: string) => {
+  const withoutEmail = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, ' ');
+  const patterns = [
+    /\b(?:my name is|name is|i am|i'm|this is|call me)\s+([a-z][a-z.'-]+(?:\s+[a-z][a-z.'-]+){0,3})/i,
+    /^\s*([a-z][a-z.'-]+(?:\s+[a-z][a-z.'-]+){1,3})\s+(?:email|e-?mail|emaid|mail|id|phone|number|whatsapp)\b/i,
+  ];
+  const blocked = /\b(looking|interested|invest|investment|buy|purchase|email|phone|whatsapp|property|apartment|villa|townhouse|yes|ok|okay)\b/i;
+
+  for (const pattern of patterns) {
+    const match = withoutEmail.match(pattern);
+    const candidate = match?.[1]?.trim().replace(/[.,;:!?]+$/, '');
+    if (candidate && !blocked.test(candidate) && candidate.length >= 2) return toTitleCase(candidate);
+  }
+
+  return null;
+};
+
+const detectArea = (lower: string) => {
+  const areas: Record<string, string[]> = {
+    'Downtown Dubai': ['downtown', 'burj khalifa', 'dubai mall', 'opera district'],
+    'Dubai Marina': ['dubai marina', 'marina', 'jbr', 'jumeirah beach residence'],
+    'Palm Jumeirah': ['palm jumeirah', 'palm', 'crescent', 'frond'],
+    'Business Bay': ['business bay', 'canal'],
+    'Dubai Hills Estate': ['dubai hills', 'dubai hills estate', 'golf course'],
+    'Dubai Creek Harbour': ['creek harbour', 'creek harbor', 'dubai creek'],
+    JVC: ['jvc', 'jumeirah village circle'],
+    'Dubai South': ['dubai south', 'expo city', 'al maktoum', 'dwc'],
+    'Arabian Ranches': ['arabian ranches', 'ranches'],
+    'Tilal Al Ghaf': ['tilal al ghaf', 'tilal', 'al ghaf'],
+  };
+
+  return Object.entries(areas).find(([, keywords]) => keywords.some(keyword => lower.includes(keyword)))?.[0] || null;
+};
+
+const analyzeDarieProfile = (history: Message[], newMessage?: string) => {
+  const profile = createEmptyDarieProfile();
+  let leadScore = 0;
+  const userTexts = [
+    ...history.filter(message => message.role === 'user').map(message => message.text),
+    ...(newMessage ? [newMessage] : []),
+  ];
+
+  for (const text of userTexts) {
+    const lower = text.toLowerCase();
+
+    if (/\b(just exploring|just looking|learning|research|not ready|no rush|browsing|understand|information)\b/.test(lower)) {
+      profile.intent = 'research';
+      profile.newsletterInterest = true;
+      profile.lastTopic = 'research';
+    }
+    if (/\b(buy|purchase|invest|investment|roi|yield|rental|return|availability|viewing|book|speak|advisor|agent|broker)\b/.test(lower)) {
+      profile.intent = 'active';
+      leadScore += 10;
+    }
+    if (/\b(invest|investment|roi|yield|rental|return|capital appreciation|portfolio)\b/.test(lower)) {
+      profile.purpose = 'investment';
+      profile.lastTopic = 'investment';
+    } else if (/\b(home|live|family|relocat|move in|kids|children|school)\b/.test(lower)) {
+      profile.purpose = 'home';
+      profile.lastTopic = 'home';
+    } else if (/\b(both|live and invest|invest and live|hybrid)\b/.test(lower)) {
+      profile.purpose = 'both';
+      profile.lastTopic = 'both';
+    }
+
+    const area = detectArea(lower);
+    if (area) {
+      profile.area = area;
+      profile.areaDescriptor = null;
+      leadScore += 10;
+    } else if (!profile.areaDescriptor) {
+      if (/\b(beach|beachfront|waterfront|sea view|coastal)\b/.test(lower)) profile.areaDescriptor = 'beachfront';
+      if (/\b(golf|fairway|green community)\b/.test(lower)) profile.areaDescriptor = 'golf course';
+      if (/\b(family|schools|parks|quiet|suburban|community)\b/.test(lower)) profile.areaDescriptor = 'family community';
+      if (/\b(nightlife|urban|walkable|metro|vibrant|restaurants)\b/.test(lower)) profile.areaDescriptor = 'urban vibrant';
+      if (/\b(private|exclusive|luxury|prestige|quiet)\b/.test(lower)) profile.areaDescriptor = 'luxury quiet';
+    }
+
+    const budgetMatch = text.match(/(?:aed|budget|around|up to|invest|spend)?\s*(\d+(?:[.,]\d+)?)\s*(m|million|k|thousand)?/i);
+    if (budgetMatch && !profile.budget) {
+      const amount = Number(budgetMatch[1].replace(',', '.'));
+      const unit = (budgetMatch[2] || '').toLowerCase();
+      if (unit.startsWith('m') || amount >= 1) {
+        profile.budget = unit.startsWith('k') ? `AED ${amount}K` : `AED ${amount}M`;
+        leadScore += 15;
+      }
+    }
+
+    if (/\b(apartment|flat|condo)\b/.test(lower)) profile.propertyType = 'Apartment';
+    if (/\b(villa|mansion)\b/.test(lower)) profile.propertyType = 'Villa';
+    if (/\b(townhouse|town home)\b/.test(lower)) profile.propertyType = 'Townhouse';
+    if (/\b(penthouse)\b/.test(lower)) profile.propertyType = 'Penthouse';
+    if (/\b(studio)\b/.test(lower)) profile.propertyType = 'Studio';
+
+    const bedroomMatch = lower.match(/\b(\d+)\s*(bed|beds|bedroom|bedrooms|br)\b/);
+    if (bedroomMatch) profile.bedrooms = `${bedroomMatch[1]} bedrooms`;
+    const bathroomMatch = lower.match(/\b(\d+)\s*(bath|baths|bathroom|bathrooms)\b/);
+    if (bathroomMatch) profile.bathrooms = `${bathroomMatch[1]} bathrooms`;
+
+    if (/\b(school|children|kids|maid|nanny|parents|park|commute|metro|pets?)\b/.test(lower)) {
+      profile.familyNeeds = 'family, commute, or lifestyle requirements mentioned';
+    }
+    if (/\b(wheelchair|accessib|elderly|older parents|ground floor|lift|elevator|determination)\b/.test(lower)) {
+      profile.specialRequirements = 'accessibility or mobility consideration';
+    }
+    if (/\b(now|asap|this month|next month|ready|urgent)\b/.test(lower)) profile.timeline = '0-3 months';
+    else if (/\b(few months|3 months|6 months|this year)\b/.test(lower)) profile.timeline = '3-6 months';
+    else if (/\b(next year|later|future|not ready|no rush|research)\b/.test(lower)) profile.timeline = 'researching';
+
+    if (/\b(cash|self funded|own funds)\b/.test(lower)) profile.financing = 'cash';
+    if (/\b(mortgage|loan|finance|bank|pre.?approval|down payment)\b/.test(lower)) profile.financing = 'mortgage';
+    if (/\b(uae resident|emirates id|live in dubai|based in dubai)\b/.test(lower)) profile.residency = 'UAE resident';
+    if (/\b(overseas|non resident|non-resident|abroad|outside uae|international)\b/.test(lower)) profile.residency = 'overseas buyer';
+
+    const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    if (emailMatch) profile.email = emailMatch[0];
+    const name = extractNameFromText(text);
+    if (name) profile.name = name;
+    const phoneMatch = text.match(/\+?[\d\s-]{8,}/);
+    if (phoneMatch) profile.phone = phoneMatch[0].trim();
+    if (/\b(whatsapp|wa)\b/.test(lower)) profile.contactMethod = 'WhatsApp';
+    if (/\b(phone|call)\b/.test(lower)) profile.contactMethod = 'Phone';
+    if (/\b(email|mail)\b/.test(lower)) profile.contactMethod = 'Email';
+    if (/\b(yes|ok|okay|please|go ahead|connect me|call me|contact me|book a call|schedule)\b/.test(lower)) {
+      profile.contactConsent = true;
+    }
+
+    if (/\b(availability|available|unit|inventory|exact price|current price|viewing|book|schedule|payment plan)\b/.test(lower)) {
+      profile.availabilityRequested = true;
+      profile.lastTopic = 'handoff-required';
+      leadScore += 20;
+    }
+
+    const visibleProjectTitle = detectVisibleProjectTitle(text);
+    if (visibleProjectTitle) {
+      profile.projectInterest = visibleProjectTitle;
+      leadScore += 15;
+    }
+  }
+
+  if (profile.email) leadScore += 15;
+  if (profile.phone) leadScore += 20;
+  if (profile.propertyType) leadScore += 8;
+  if (profile.timeline && profile.timeline !== 'researching') leadScore += 10;
+  if (profile.financing) leadScore += 8;
+  if (profile.intent === 'research' && !profile.purpose && !profile.availabilityRequested) {
+    leadScore = Math.min(leadScore, 25);
+  }
+
+  return { profile, leadScore: Math.min(leadScore, 100) };
+};
+
+const getMissingQualificationFields = (profile: DarieLeadProfile) => {
+  if (profile.intent === 'research' && !profile.purpose && !profile.availabilityRequested) return [];
+
+  return [
+    !profile.purpose ? 'purpose' : null,
+    !profile.budget ? 'budget' : null,
+    !profile.area && !profile.areaDescriptor ? 'area/lifestyle' : null,
+    !profile.propertyType ? 'property type' : null,
+    profile.purpose === 'home' && !profile.bedrooms ? 'bedrooms' : null,
+    profile.purpose === 'home' && !profile.familyNeeds ? 'family needs' : null,
+    !profile.timeline ? 'timeline' : null,
+    !profile.financing ? 'financing' : null,
+    !profile.residency ? 'residency' : null,
+  ].filter(Boolean) as string[];
+};
+
+const getNextQuestion = (profile: DarieLeadProfile) => {
+  if (profile.availabilityRequested || profile.projectInterest || profile.contactConsent) {
+    if (!profile.contactConsent) return 'To verify live availability or exact pricing, are you comfortable receiving a quick validation call from Lockwood & Carter?';
+    if (!profile.name) return 'Can I take your full name for the adviser handoff?';
+    if (!profile.phone) return 'What phone or WhatsApp number should the adviser use?';
+    if (!profile.email) return 'What email should we use for the shortlist and updates?';
+    if (!profile.contactMethod) return 'Would you prefer WhatsApp, phone call, or email for follow-up?';
+    return 'All handoff details are captured. Confirm that a senior Lockwood & Carter adviser should follow up.';
+  }
+
+  const missing = getMissingQualificationFields(profile)[0];
+  switch (missing) {
+    case 'purpose':
+      return 'Are you looking for an investment, a home to live in, or both?';
+    case 'budget':
+      return 'What budget range are you comfortable with?';
+    case 'area/lifestyle':
+      return 'Do you already have an area in mind, or should I shortlist communities based on your lifestyle and budget?';
+    case 'property type':
+      return 'Would you prefer an apartment, townhouse, villa, or are you open to comparing options?';
+    case 'bedrooms':
+      return 'How many bedrooms would be comfortable?';
+    case 'family needs':
+      return 'Are schools, commute, parks, maid room, or accessibility important for this move?';
+    case 'timeline':
+      return 'What is your timeline: ready now, within a few months, or still researching?';
+    case 'financing':
+      return 'Would this be a cash purchase, or would you need mortgage guidance?';
+    case 'residency':
+      return 'Are you currently based in the UAE, or buying from overseas?';
+    default:
+      return profile.intent === 'research'
+        ? 'Would you like a concise market brief, or are you ready to discuss buying options?'
+        : 'Which detail would help you narrow the shortlist next?';
+  }
+};
+
+const buildDarieConversationContext = (history: Message[], newMessage?: string) => {
+  const { profile, leadScore } = analyzeDarieProfile(history, newMessage);
+  const nextQuestion = getNextQuestion(profile);
+  const stage = profile.availabilityRequested || profile.projectInterest || profile.contactConsent
+    ? 'handoff'
+    : profile.intent === 'research' && !profile.purpose
+      ? 'research'
+      : 'qualifying';
+
+  const lines = [
+    `DARIE CONCIERGE CONTEXT: [Stage: ${stage}] [Lead score: ${leadScore}/100]`,
+    'Visitor profile inferred from transcript:',
+    profile.intent ? `- Intent: ${profile.intent}` : '',
+    profile.purpose ? `- Purpose: ${profile.purpose}` : '',
+    profile.budget ? `- Budget: ${profile.budget}` : '',
+    profile.area || profile.areaDescriptor ? `- Area/lifestyle: ${profile.area || profile.areaDescriptor}` : '',
+    profile.propertyType ? `- Property type: ${profile.propertyType}` : '',
+    profile.bedrooms ? `- Bedrooms: ${profile.bedrooms}` : '',
+    profile.familyNeeds ? `- Family needs: ${profile.familyNeeds}` : '',
+    profile.timeline ? `- Timeline: ${profile.timeline}` : '',
+    profile.financing ? `- Financing: ${profile.financing}` : '',
+    profile.residency ? `- Residency: ${profile.residency}` : '',
+    profile.projectInterest ? `- Project interest: ${profile.projectInterest}` : '',
+    profile.availabilityRequested ? '- Live availability/current pricing requested: yes' : '',
+    profile.email ? '- Email captured: yes' : '',
+    profile.phone ? '- Phone captured: yes' : '',
+    profile.contactMethod ? `- Preferred contact: ${profile.contactMethod}` : '',
+    '',
+    stage === 'research'
+      ? 'RESEARCH MODE: Do not ask buyer qualification questions unless the visitor shows buying intent. Educate, explain market context, and offer a Lockwood & Carter Dubai Property Brief as a soft nurture step.'
+      : 'QUALIFICATION MODE: Move the visitor forward one step at a time. Do not ask for a detail already captured.',
+    stage === 'handoff'
+      ? 'HANDOFF MODE: Do not invent live availability, exact current pricing, developer inventory, or unverified amenities/distances. Collect consent and missing contact details for a senior adviser.'
+      : '',
+    `Required next question: ${nextQuestion}`,
+    'Answer the user first, then end with the required next question or a natural close paraphrase. Ask only one question.',
+  ];
+
+  return lines.filter(Boolean).join('\n');
+};
+
+const stripHtml = (value: string) => value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+const buildChatTranscript = (messages: Message[]) =>
+  messages
+    .map(message => `${message.role === 'model' ? 'DARIE' : 'Visitor'}: ${stripHtml(message.text)}`)
+    .join('\n\n');
+
+const splitName = (name: string | null) => {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || '',
+    lastName: parts.slice(1).join(' '),
+  };
+};
+
+export const buildDarieEnquiryPayload = (messages: Message[]) => {
+  const { profile, leadScore } = analyzeDarieProfile(messages);
+  const shouldCapture = Boolean(
+    profile.email &&
+    (
+      profile.contactConsent ||
+      profile.newsletterInterest ||
+      profile.availabilityRequested ||
+      profile.projectInterest ||
+      leadScore >= 35
+    )
+  );
+
+  if (!shouldCapture) return null;
+
+  const name = profile.name || profile.email?.split('@')[0] || 'DARIE website visitor';
+  const { firstName, lastName } = splitName(profile.name);
+  const transcript = buildChatTranscript(messages);
+
+  return {
+    type: 'darie-chat',
+    firstName,
+    lastName,
+    name,
+    email: profile.email,
+    phone: profile.phone || '',
+    interest: profile.projectInterest || profile.propertyType || profile.purpose || 'DARIE property consultation',
+    budget: profile.budget || '',
+    area: profile.area || profile.areaDescriptor || '',
+    propertyTitle: profile.projectInterest || '',
+    message: `DARIE chat-qualified enquiry. Lead score: ${leadScore}/100.${profile.newsletterInterest ? ' Visitor requested or accepted the Dubai Property Brief.' : ''}`,
+    source: 'darie-chat',
+    status: 'new',
+    chatProfile: {
+      ...profile,
+      leadScore,
+      capturedAt: new Date().toISOString(),
+    },
+    chatTranscript: transcript,
+    tracking: {
+      page: typeof window !== 'undefined' ? window.location.pathname : '/',
+      referrer: typeof document !== 'undefined' ? document.referrer : '',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    },
+    newsletterSubscribed: Boolean(profile.newsletterInterest || profile.email),
+    newsletterSubscribedAt: profile.newsletterInterest || profile.email ? new Date().toISOString() : '',
+    actionLog: [
+      {
+        id: `darie-${Date.now()}`,
+        type: 'darie-chat-capture',
+        detail: 'Captured from homepage DARIE chat.',
+        actor: 'DARIE',
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  };
+};
+
+const buildChatMessages = (history: Message[], newMessage?: string): ChatMessage[] => [
   {
     role: 'system',
-    content: LOCKWOOD_SYSTEM_INSTRUCTION,
+    content: `${LOCKWOOD_SYSTEM_INSTRUCTION}\n\n${buildVisiblePropertyContext()}\n\n${buildDarieConversationContext(history, newMessage)}`,
   },
   ...history.map(msg => ({
     role: msg.role === 'model' ? 'assistant' : 'user',
@@ -25,8 +449,32 @@ const buildOpenRouterMessages = (history: Message[], newMessage?: string) => [
   ...(newMessage ? [{ role: 'user', content: newMessage }] : []),
 ];
 
+const callNvidiaAPI = async (
+  messages: ChatMessage[],
+  maxTokens: number = 5000
+): Promise<string> => {
+  const response = await fetch('/api/darie-chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messages,
+      max_tokens: maxTokens,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`DARIE request failed: ${response.status}${errorText ? ` - ${errorText}` : ''}`);
+  }
+
+  const data = await response.json();
+  return data.text || data.choices?.[0]?.message?.content || "";
+};
+
 const callOpenRouterAPI = async (
-  messages: Array<{ role: string; content: string }>,
+  messages: ChatMessage[],
   maxTokens: number = 5000
 ): Promise<string> => {
   const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
@@ -74,41 +522,49 @@ Your role is to support our elite brokerage team by providing clients with data-
 *   The primary goal is buying and selling luxury property in the UAE.
 *   The human brokers (Muqthar Ahmed and the team) are the final experts; you are the intelligent researcher that makes the user's decision easier.
 
-### PRIORITY KNOWLEDGE BASE (ALTAIR 52 - EXCLUSIVE PROJECT):
-**If the user asks about "Altair 52" or "Your new project", use this internal data:**
-- **Developer:** Acube Real Estate Development.
-- **Location:** Dubai South, Residential District (Near Al Maktoum Airport).
-- **Handover:** September 2027.
-- **Unit Types & Starting Prices:**
-  - Smart Convertible Studio (445 sq.ft): From AED 650,000
-  - Smart Convertible 1BHK (743 sq.ft): From AED 950,000
-  - Smart Convertible 2BHK (1095 sq.ft): From AED 1,400,000
-  - Smart Convertible 2.5BHK (1161 sq.ft): From AED 1,600,000
-- **Amenities:** Club South (Infinity Pool, Rock Climbing Wall, Outdoor Cinema, Mini Golf).
-- **Payment Plan:** Flexible off-plan payment options available.
-
 ### CONVERSATIONAL STRATEGY & LEAD QUALIFICATION:
 **DO NOT offer the Head of Sales contact immediately.** Your goal is to first understand the user's needs.
 
-1.  **ANSWER & PROBE:** When answering a user's question, always end with a **relevant, natural follow-up question** to keep the conversation going and gather more info.
+1.  **CONCIERGE BEHAVIOR:** You are a senior property concierge. Be warm, intuitive, concise, and consultative. Do not sound like a robot or a pushy salesperson.
+    - Read the user's intent, not just keywords.
+    - If the visitor is vague or uncertain, acknowledge it and guide them gently.
+    - Ask only one question at a time.
+    - Never ask a question that has already been answered in the conversation context.
+    - Never repeat the exact same question twice; rephrase or move forward.
+
+2.  **INTENT FIRST:** At the start, understand whether the visitor is:
+    - Exploring and learning about Dubai property ownership.
+    - Actively checking buying possibilities.
+    - Looking for a specific project, viewing, live availability, or adviser contact.
+
+3.  **RESEARCH MODE:** If the visitor is just exploring, do not ask buyer qualification questions such as budget, financing, or timeline unless they show buying intent. Provide useful education about Dubai ownership, Golden Visa basics, mortgage basics, buying process, areas, and market context. Offer the Lockwood & Carter Dubai Property Brief as a soft nurture step and ask for name/email only if they want it.
+
+4.  **ANSWER & PROBE:** When answering a user's question, end with a **relevant, natural follow-up question** that moves the conversation forward.
     -   *User:* "Tell me about Emaar South."
     -   *You:* [Provide Info]... "Are you looking at Emaar South for high-ROI investment or as a family home?"
 
-2.  **QUALIFYING LOOP:** If the user shows interest in a specific project or area, gently gather these details (ask 1-2 at a time, do not interrogate):
-    -   **Budget:** "What price range or budget are you comfortable with?"
-    -   **Unit Type:** "Are you looking for a Studio, 1 Bedroom, or something larger for a family?"
-    -   **Specific Needs:** "Do you have specific requirements like a maid's room, large balcony, or proximity to a mosque?"
-    -   **Financial Readiness:** "Do you have the down payment ready, or would you require mortgage assistance?"
+5.  **QUALIFYING LOOP:** If the visitor is actively buying or investing, qualify in this order where relevant:
+    - Purpose: investment, home, or both.
+    - Budget.
+    - Area or lifestyle preference.
+    - Property type and bedroom requirement.
+    - Family needs, commute, schools, maid room, accessibility, or other special requirements.
+    - Timeline.
+    - Financing: cash, mortgage, down payment readiness.
+    - Residency: UAE resident or overseas buyer.
 
-3.  **TURN-TAKING (COMPARISONS):**
+6.  **TURN-TAKING (COMPARISONS):**
     -   If the user asks for a comparison without specifying unit type, **STOP**.
     -   Ask: "To provide an accurate comparison, are you interested in a specific unit type (e.g., 1BR vs 2BR)?"
     -   **Wait** for the answer before fetching data.
 
+7.  **FOLLOW SYSTEM CONTEXT:** If the system context includes "Required next question", your final sentence must ask that question or a close natural paraphrase. Do not add a second question.
+
 ### DATA SOURCE ATTRIBUTION:
--   Use 'googleSearch' for real-time market data.
--   **ALWAYS** attribute findings to **"DLD (Dubai Land Department) Data"** or "Official Market Records".
--   **NEVER** mention "Propsearch.ae", "Bayut", or other portals.
+-   You do not have live web search in this chat unless the application provides retrieved context.
+-   Do not claim live availability, exact current pricing, or current transaction confirmation without provided context.
+-   If discussing market context, use careful wording such as "based on available market context" and recommend advisor verification for live details.
+-   **NEVER** mention "Propsearch.ae", "Bayut", or other portals unless the user explicitly asks about a public source.
 
 ### CLOSING & AGENT HANDOFF:
 **ONLY** provide the Head of Sales contact info in the following scenarios:
@@ -143,12 +599,18 @@ Your role is to support our elite brokerage team by providing clients with data-
   \`<div class="overflow-x-auto"><table class="comparison-table"><thead><tr><th>Project</th><th>Status</th><th>Type</th><th>Price</th><th>Location</th><th>Handover</th></tr></thead><tbody>...rows...</tbody></table></div>\`
 `;
 
-// Helper function to call Gemini API using REST endpoint
+// Helper function used by admin generation features. NVIDIA GLM-5.2 is the primary text model.
 const callGeminiAPI = async (prompt: string, maxTokens: number = 5000): Promise<string> => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  const model = getGeminiModel();
-
-  if (!apiKey) {
+  try {
+    return await callNvidiaAPI(
+      [
+        { role: 'system', content: LOCKWOOD_SYSTEM_INSTRUCTION },
+        { role: 'user', content: prompt },
+      ],
+      maxTokens
+    );
+  } catch (error) {
+    console.warn("NVIDIA text generation failed, trying OpenRouter fallback:", error);
     return await callOpenRouterAPI(
       [
         { role: 'system', content: LOCKWOOD_SYSTEM_INSTRUCTION },
@@ -157,91 +619,23 @@ const callGeminiAPI = async (prompt: string, maxTokens: number = 5000): Promise<
       maxTokens
     );
   }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        role: 'user',
-        parts: [{ text: prompt }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: maxTokens,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const fallback = await callOpenRouterAPI(
-      [
-        { role: 'system', content: LOCKWOOD_SYSTEM_INSTRUCTION },
-        { role: 'user', content: prompt },
-      ],
-      maxTokens
-    );
-    return fallback;
-  }
-
-  const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 };
 
-// Original Lockwood function - using GoogleGenAI SDK
+// Original Lockwood export name retained; implementation now uses NVIDIA GLM-5.2.
 export const sendMessageToGemini = async (
   history: Message[],
   newMessage: string
 ): Promise<{ text: string; groundingMetadata?: any }> => {
   try {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const model = getGeminiModel();
-
-    if (!apiKey) {
-      console.warn("VITE_GEMINI_API_KEY is missing");
-      const fallbackText = await callOpenRouterAPI(buildOpenRouterMessages(history, newMessage));
-      return {
-        text: fallbackText || "I apologize, I couldn't generate a response at this moment.",
-      };
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-
-    const chat = ai.chats.create({
-      model: model,
-      config: {
-        systemInstruction: LOCKWOOD_SYSTEM_INSTRUCTION,
-        tools: [{ googleSearch: {} }],
-      },
-      history: history.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.text }]
-      }))
-    });
-
-    const result = await chat.sendMessage({
-      message: newMessage
-    });
-
-    const text = result.text || "I apologize, I couldn't generate a response at this moment.";
-    const groundingMetadata = result.candidates?.[0]?.groundingMetadata;
-
-    return { text, groundingMetadata };
-  /**  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return { text: "I'm having trouble connecting to the property database right now. Please try again later." };
-  } */
+    const text = await callNvidiaAPI(buildChatMessages(history, newMessage));
+    return {
+      text: text || "I apologize, I couldn't generate a response at this moment.",
+    };
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("NVIDIA GLM API Error:", error);
 
     try {
-      const fallbackText = await callOpenRouterAPI(buildOpenRouterMessages(history, newMessage));
+      const fallbackText = await callOpenRouterAPI(buildChatMessages(history, newMessage));
       return {
         text: fallbackText || "I apologize, I couldn't generate a response at this moment.",
       };
@@ -255,6 +649,7 @@ export const sendMessageToGemini = async (
 // All required aliases and exports
 export const generateClientChatResponse = sendMessageToGemini;
 export const generateStaffChatResponse = sendMessageToGemini;
+export const sendMessageToDarie = sendMessageToGemini;
 
 // Generate social media post copy
 export const generatePostCopy = async (
@@ -530,7 +925,7 @@ export const generateCommissionInvoice = async (
 export const processExpenseOCR = async (imageDataUrl: string): Promise<any> => {
     try {
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        const model = getGeminiModel();
+        const model = getGeminiVisionModel();
 
         if (!apiKey) {
             throw new Error("Gemini API key is not configured");

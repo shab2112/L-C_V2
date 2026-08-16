@@ -12,69 +12,71 @@ export const Features: React.FC<FeaturesProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
 
   return (
-    <section className="py-32 bg-white relative overflow-hidden" id="features">
+    <section className="relative overflow-hidden bg-[#F5F0E6] py-24 sm:py-28" id="features">
         
-        <div className="container mx-auto px-4 relative z-10">
+        <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
         
-        <div className="text-center mb-24">
-          <h2 className="text-4xl md:text-6xl font-serif font-bold text-lc-navy mb-6">Our Agency Services</h2>
-          <p className="text-gray-500 text-xl max-w-3xl mx-auto font-light">
+        <div className="mb-14 max-w-3xl lg:mb-16">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#6D2636]">Advisory services</p>
+          <h2 className="mb-6 font-serif text-4xl font-normal leading-tight text-[#122238] md:text-6xl">Our Agency Services</h2>
+          <p className="max-w-2xl text-lg font-normal leading-relaxed text-[#292B2D]/75 md:text-xl">
             Unrivaled expertise in the Dubai property market, supported by data-driven intelligence for the sophisticated investor.
           </p>
+          <div className="mt-8 h-px w-24 bg-[#B49A68]" />
         </div>
 
-        <div className="grid md:grid-cols-3 gap-12">
+        <div className="grid gap-6 md:grid-cols-3">
           {/* Card 1: Off-Plan */}
-          <div className="group bg-gray-50 rounded-3xl p-10 border border-gray-100 hover:border-lc-gold/50 transition-all duration-500 hover:-translate-y-2 shadow-sm hover:shadow-2xl">
-            <div className="w-20 h-20 rounded-2xl bg-lc-navy text-lc-gold flex items-center justify-center mb-10 group-hover:scale-110 transition-transform duration-500">
-                <Building2 size={36} />
+          <div className="group flex min-h-[360px] flex-col border border-[#E6DED0] bg-white p-8 shadow-sm transition-colors duration-300 hover:border-[#B49A68]/70 lg:p-10">
+            <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-[2px] bg-[#122238] text-[#B49A68]">
+                <Building2 size={28} />
             </div>
-            <h3 className="text-2xl font-bold text-lc-navy mb-4">Off-Plan Investment Specialists</h3>
-             <p className="text-gray-500 leading-relaxed mb-8">
+            <h3 className="mb-4 font-serif text-2xl font-normal leading-snug text-[#122238]">Off-Plan Investment Specialists</h3>
+             <p className="mb-8 text-[#292B2D]/70 leading-relaxed">
                Gain exclusive first-access to Dubai's most anticipated launches. We secure prime units with high capital appreciation potential before they hit the open market.
              </p>
              <button 
                 onClick={() => navigate('/projects#off-plan')}
-                className="flex items-center gap-2 text-lc-navy font-bold hover:text-lc-gold transition-colors"
+                className="mt-auto flex min-h-11 items-center gap-2 text-[#122238] font-bold transition-colors hover:text-[#6D2636]"
              >
                 View Off-Plan <ArrowRight size={18} />
              </button>
           </div>
 
           {/* Card 2: Luxury Ready */}
-          <div className="group bg-gray-50 rounded-3xl p-10 border border-gray-100 hover:border-lc-gold/50 transition-all duration-500 hover:-translate-y-2 shadow-sm hover:shadow-2xl">
-             <div className="w-20 h-20 rounded-2xl bg-lc-navy text-lc-gold flex items-center justify-center mb-10 group-hover:scale-110 transition-transform duration-500">
-                <Key size={36} />
+          <div className="group flex min-h-[360px] flex-col border border-[#E6DED0] bg-white p-8 shadow-sm transition-colors duration-300 hover:border-[#B49A68]/70 lg:p-10">
+             <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-[2px] bg-[#122238] text-[#B49A68]">
+                <Key size={28} />
              </div>
              
-             <h3 className="text-2xl font-bold text-lc-navy mb-4">Luxury Property Brokerage</h3>
-             <p className="text-gray-500 leading-relaxed mb-8">
+             <h3 className="mb-4 font-serif text-2xl font-normal leading-snug text-[#122238]">Luxury Property Brokerage</h3>
+             <p className="mb-8 text-[#292B2D]/70 leading-relaxed">
                Bespoke brokerage for move-in ready villas, penthouses, and mansions. Our team handles the entire lifecycle, from private tours to DLD transfer.
              </p>
              <button 
                 onClick={() => navigate('/projects#ready')}
-                className="flex items-center gap-2 text-lc-navy font-bold hover:text-lc-gold transition-colors"
+                className="mt-auto flex min-h-11 items-center gap-2 text-[#122238] font-bold transition-colors hover:text-[#6D2636]"
              >
                 View Ready Assets <ArrowRight size={18} />
              </button>
           </div>
 
           {/* Card 3: Intelligence */}
-          <div className="group bg-gray-50 rounded-3xl p-10 border border-gray-100 hover:border-lc-gold/50 transition-all duration-500 hover:-translate-y-2 shadow-sm hover:shadow-2xl">
-             <div className="w-20 h-20 rounded-2xl bg-lc-navy text-lc-gold flex items-center justify-center mb-10 group-hover:scale-110 transition-transform duration-500">
-                <BarChart3 size={36} />
+          <div className="group flex min-h-[360px] flex-col border border-[#E6DED0] bg-white p-8 shadow-sm transition-colors duration-300 hover:border-[#B49A68]/70 lg:p-10">
+             <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-[2px] bg-[#122238] text-[#B49A68]">
+                <BarChart3 size={28} />
              </div>
 
-             <h3 className="text-2xl font-bold text-lc-navy mb-4">Strategic Portfolio Intelligence</h3>
+             <h3 className="mb-4 font-serif text-2xl font-normal leading-snug text-[#122238]">Strategic Portfolio Intelligence</h3>
              <div className="mb-4">
-                <span className="bg-lc-gold/10 text-lc-gold text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-lc-gold/20">AI Enhanced</span>
+                <span className="text-[#6F5A35] text-[10px] font-bold uppercase tracking-widest border-l border-[#B49A68] pl-3">Advisor tools</span>
              </div>
-             <p className="text-gray-500 leading-relaxed mb-8">
+             <p className="mb-8 text-[#292B2D]/70 leading-relaxed">
                Make decisions based on real-time transaction data and ROI projections. We provide detailed market analysis to ensure your portfolio outperforms the index.
              </p>
              <button
                 onClick={() => onNavigate('LOGIN')}
-                className="flex items-center gap-2 text-lc-navy font-bold hover:text-lc-gold transition-colors"
+                className="mt-auto flex min-h-11 items-center gap-2 text-[#122238] font-bold transition-colors hover:text-[#6D2636]"
              >
                 Get Insights <ArrowRight size={18} />
              </button>

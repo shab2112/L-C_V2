@@ -10,8 +10,6 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-<<<<<<< HEAD
-=======
 
   @keyframes marquee {
     0% {
@@ -27,5 +25,4 @@
     animation: marquee 40s linear infinite;
     will-change: transform;
   }
->>>>>>> 2e8ae07bc0c57578ead9bb0e095e5ed797e62558
 }

@@ -102,14 +102,17 @@ const UnifiedLogin: React.FC<UnifiedLoginProps> = ({
 
           <div className="text-center mb-8">
             <div className="flex flex-col items-center justify-center gap-2 mb-6">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center gap-3">
                 <img
-                  src="/lockwood-assets/general/logo.png"
-                  alt="Lockwood & Carter"
-                  className="h-14 w-auto object-contain"
-                  style={{ filter: 'brightness(0)' }}
+                  src="/lockwood-assets/general/brand/lockwood-carter-monogram-transparent.png"
+                  alt="Lockwood & Carter monogram"
+                  className="h-14 w-14 object-contain"
                 />
-                <span className="font-script text-3xl text-lc-gold tracking-wide" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.1)' }}>Lockwood & Carter</span>
+                <img
+                  src="/lockwood-assets/general/brand/lockwood-carter-wordmark.png"
+                  alt="Lockwood & Carter Real Estate"
+                  className="h-auto w-44 object-contain"
+                />
               </div>
             </div>
             <h1 className="text-xl font-serif font-bold text-lc-navy mb-2 tracking-tight">Welcome Back</h1>

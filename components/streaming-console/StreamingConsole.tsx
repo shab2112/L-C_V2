@@ -315,18 +315,19 @@ export default function StreamingConsole() {
       <div className="transcription-view" ref={scrollRef}>
         <div className="chat-header-decorative">
           <div className="flex flex-col items-center justify-center gap-2 py-6">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-[2px] border border-[#E6DED0]/90 bg-[#F5F0E6] px-3 py-2">
               <img
-                src="/lockwood-assets/general/logo.png"
-                alt="Lockwood & Carter"
-                className="h-14 w-auto object-contain"
-                style={{ filter: 'brightness(0) invert(1)' }}
+                src="/lockwood-assets/general/brand/lockwood-carter-monogram-transparent.png"
+                alt=""
+                className="h-10 w-10 shrink-0 object-contain"
               />
-              <span className="font-script text-3xl text-white/90 tracking-wide" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>
-                Lockwood & Carter
-              </span>
+              <img
+                src="/lockwood-assets/general/brand/lockwood-carter-wordmark.png"
+                alt="Lockwood & Carter Real Estate"
+                className="h-auto w-[148px] max-w-[46vw] object-contain sm:w-[170px]"
+              />
             </div>
-            <p className="text-[11px] text-white/60 tracking-[0.25em] font-light uppercase">Real Estate AI Advisor</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#E6DED0]">DARIE property concierge</p>
           </div>
         </div>
         {displayedTurns.length === 0 && !isAwaitingFunctionResponse ? (

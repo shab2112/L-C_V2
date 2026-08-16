@@ -7,6 +7,7 @@ import { CashIcon } from './icons/CashIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { BookmarkIcon } from './icons/BookmarkIcon';
 import { ContractIcon } from './icons/ContractIcon';
+import { BuildingIcon } from './icons/BuildingIcon';
 import { User, UserRole } from '../types';
 
 const MapIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -30,6 +31,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser }) => {
     { id: 'darie-assistant', label: 'Darie Assistant', icon: MapIcon, path: '/dashboard/darie-assistant' },
     { id: 'content-studio', label: 'Content Studio', icon: DocumentTextIcon, path: '/dashboard/content-studio' },
     { id: 'market-intelligence', label: 'Market Intelligence', icon: ChartBarIcon, path: '/dashboard/market-intelligence' },
+    { id: 'property-intelligence', label: 'Property Intelligence', icon: BuildingIcon, path: '/dashboard/property-intelligence', roles: [UserRole.Owner, UserRole.Admin] },
+    { id: 'crm', label: 'CRM Intelligence', icon: UsersIcon, path: '/dashboard/crm', roles: [UserRole.Owner, UserRole.Admin, UserRole.PropertyAdvisor] },
     { id: 'finance-intelligence', label: 'Finance Intelligence', icon: CashIcon, path: '/dashboard/finance-intelligence', roles: [UserRole.Owner, UserRole.Admin] },
     { id: 'clients', label: 'Client Registry', icon: UsersIcon, path: '/dashboard/clients' },
     { id: 'contracts', label: 'Contracts', icon: ContractIcon, path: '/dashboard/contracts', roles: [UserRole.Owner, UserRole.Admin] },
@@ -53,7 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser }) => {
             <button
               onClick={() => navigate(item.path)}
               className={`flex items-center justify-center p-3 rounded-lg w-full transition-all duration-200 ${
-                location.pathname === item.path
+                (location.pathname === item.path || location.pathname.startsWith(`${item.path}/`))
                   ? 'bg-brand-gold text-white shadow-lg'
                   : 'text-brand-light hover:bg-brand-accent hover:text-brand-text'
               }`}

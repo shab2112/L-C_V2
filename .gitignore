@@ -1,3 +1,6 @@
 node_modules
 .env
 dist
+.chrome-render-profile/
+.chrome-screenshot-profile/
+tmp-vite-*.log

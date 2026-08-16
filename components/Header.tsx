@@ -38,18 +38,25 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setCurrentUser, onLogout, 
   };
 
   return (
-    <header className="bg-brand-primary border-b border-brand-accent p-4 flex items-center justify-between flex-shrink-0">
-      <div className="flex items-center gap-3">
-        <img
-          src="/lockwood-assets/general/logo.png"
-          alt="Lockwood & Carter"
-          className="h-14 w-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
+    <header className="overflow-visible bg-brand-primary border-b border-brand-accent px-4 py-0 flex min-h-[72px] items-center justify-between flex-shrink-0">
+      <div className="flex min-w-0 items-center">
+        <button
+          type="button"
           onClick={handleLogoClick}
           title="Visit Lockwood & Carter (opens in new tab)"
-        />
-        <span className="font-script text-3xl text-lc-gold tracking-wide hidden sm:block" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.3)' }}>
-          Lockwood & Carter
-        </span>
+          className="relative flex h-[72px] w-16 items-center justify-center p-0 transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B49A68]"
+        >
+          <span
+            className="pointer-events-none absolute left-1/2 top-0 h-16 w-16 -translate-x-1/2 rounded-b-full bg-[#F5F0E6]"
+            aria-hidden="true"
+          />
+          <img
+            src="/lockwood-assets/general/brand/lockwood-carter-monogram-transparent.png"
+            alt=""
+            className="relative z-10 h-10 w-10 shrink-0 object-contain"
+          />
+          <span className="sr-only">Lockwood & Carter Real Estate</span>
+        </button>
       </div>
       <div className="flex items-center gap-4">
         <NotificationBell currentUser={currentUser} />
