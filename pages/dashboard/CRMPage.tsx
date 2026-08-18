@@ -95,7 +95,12 @@ type CRMPageProps = {
 
 const DEFAULT_SENDER_EMAIL = 'info@lockwoodandcarter.com';
 const SENDER_EMAIL_STORAGE_KEY = 'lc_admin_sender_email';
-const DEFAULT_WHATSAPP_BUSINESS_NUMBER = (import.meta.env.VITE_WHATSAPP_BUSINESS_NUMBER || '+971564144401').trim();
+const WHATSAPP_TEMPLATE_STORAGE_KEY = 'lc_admin_whatsapp_template';
+const DEFAULT_WHATSAPP_TEMPLATE = `Hello {name}, this is Lockwood & Carter Real Estate.
+
+Thank you for your Dubai property enquiry{project}{areas}.{budget}
+
+I can share a short list of suitable options and the next steps. Would you prefer off-plan opportunities, ready properties, or investment-focused options?`;
 const statuses = [
   'New',
   'Attempted Contact',
@@ -170,6 +175,15 @@ const readApiJson = async (response: Response, label: string) => {
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+const normalizeWhatsAppNumber = (value: string) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('00')) return digits.slice(2);
+  if (digits.startsWith('0')) return `971${digits.slice(1)}`;
+  if (digits.startsWith('5') && digits.length === 9) return `971${digits}`;
+  return digits;
+};
+
 const parseCsvLine = (line: string) => {
   const values: string[] = [];
   let current = '';
@@ -235,6 +249,7 @@ const CRMPage: React.FC<CRMPageProps> = ({ currentUser }) => {
   const [leadDraft, setLeadDraft] = useState(emptyLead);
   const [bulkText, setBulkText] = useState('');
   const [senderEmail, setSenderEmail] = useState(DEFAULT_SENDER_EMAIL);
+  const [whatsAppTemplate, setWhatsAppTemplate] = useState(DEFAULT_WHATSAPP_TEMPLATE);
   const [emailDraft, setEmailDraft] = useState<{ leadId: string; to: string; subject: string; message: string } | null>(null);
   const [emailLoadingId, setEmailLoadingId] = useState<string | null>(null);
   const [whatsAppLoadingId, setWhatsAppLoadingId] = useState<string | null>(null);
@@ -351,6 +366,13 @@ const CRMPage: React.FC<CRMPageProps> = ({ currentUser }) => {
       setSenderEmail(stored);
     } else {
       window.localStorage.setItem(SENDER_EMAIL_STORAGE_KEY, DEFAULT_SENDER_EMAIL);
+    }
+
+    const storedWhatsAppTemplate = window.localStorage.getItem(WHATSAPP_TEMPLATE_STORAGE_KEY);
+    if (storedWhatsAppTemplate?.trim()) {
+      setWhatsAppTemplate(storedWhatsAppTemplate);
+    } else {
+      window.localStorage.setItem(WHATSAPP_TEMPLATE_STORAGE_KEY, DEFAULT_WHATSAPP_TEMPLATE);
     }
   }, []);
 
@@ -715,11 +737,28 @@ const CRMPage: React.FC<CRMPageProps> = ({ currentUser }) => {
     setSenderEmail(nextEmail);
   };
 
-  const buildLeadResponse = (lead: Lead) => {
+  const buildLeadResponse = (lead: Lead, template = DEFAULT_WHATSAPP_TEMPLATE) => {
     const project = lead.projectInterest ? ` for ${lead.projectInterest}` : '';
     const areas = lead.preferredLocations?.length ? ` in ${lead.preferredLocations.join(', ')}` : '';
     const budget = lead.budgetMax ? ` Your budget indication of ${formatCurrency(lead.budgetMax)} is noted.` : '';
-    return `Hello ${lead.name}, this is Lockwood & Carter Real Estate. Thank you for your Dubai property enquiry${project}${areas}.${budget} A senior advisor will review suitable options and share the next steps shortly.`;
+    return template
+      .replaceAll('{name}', lead.name || 'there')
+      .replaceAll('{project}', project)
+      .replaceAll('{areas}', areas)
+      .replaceAll('{budget}', budget)
+      .replaceAll('{advisor}', currentUser?.name || 'Lockwood & Carter advisor')
+      .replaceAll('{company}', 'Lockwood & Carter Real Estate');
+  };
+
+  const editWhatsAppTemplate = () => {
+    const entered = window.prompt(
+      'WhatsApp template. Available placeholders: {name}, {project}, {areas}, {budget}, {advisor}, {company}',
+      whatsAppTemplate,
+    );
+    const nextTemplate = entered?.trim();
+    if (!nextTemplate) return;
+    window.localStorage.setItem(WHATSAPP_TEMPLATE_STORAGE_KEY, nextTemplate);
+    setWhatsAppTemplate(nextTemplate);
   };
 
   const openLeadEmail = (lead: Lead) => {
@@ -782,8 +821,8 @@ const CRMPage: React.FC<CRMPageProps> = ({ currentUser }) => {
     }
   };
 
-  const sendWhatsAppMessage = async (lead: Lead) => {
-    const to = lead.whatsappNumber || lead.phone || '';
+  const openWhatsAppMessage = async (lead: Lead) => {
+    const to = normalizeWhatsAppNumber(lead.whatsappNumber || lead.phone || '');
     if (!to) {
       setError('This lead does not have a WhatsApp or phone number.');
       return;
@@ -792,14 +831,15 @@ const CRMPage: React.FC<CRMPageProps> = ({ currentUser }) => {
     setWhatsAppLoadingId(lead.id);
     setError('');
     try {
-      const message = buildLeadResponse(lead);
-      const response = await fetch('/api/admin/send-whatsapp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, message }),
-      });
-      const data = await readApiJson(response, 'WhatsApp API');
-      if (!data.success) throw new Error(data.error || 'Failed to send WhatsApp message');
+      const generatedMessage = buildLeadResponse(lead, whatsAppTemplate);
+      const message = window.prompt('Review WhatsApp message before opening WhatsApp Web:', generatedMessage)?.trim();
+      if (!message) return;
+
+      const opened = window.open(`https://wa.me/${to}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        setError('The browser blocked WhatsApp Web. Allow pop-ups for this site and try again.');
+        return;
+      }
 
       await updateLead({
         id: lead.id,
@@ -809,17 +849,19 @@ const CRMPage: React.FC<CRMPageProps> = ({ currentUser }) => {
           ...(lead.communications || []),
           {
             id: `comm-${Date.now()}`,
-            channel: 'whatsapp',
-            subject: 'WhatsApp follow-up',
+            channel: 'whatsapp_manual',
+            subject: 'WhatsApp Web handoff',
             detail: message,
             actor: currentUser?.name || 'admin',
-            senderNumber: DEFAULT_WHATSAPP_BUSINESS_NUMBER,
+            recipientNumber: to,
+            status: 'opened',
             timestamp: new Date().toISOString(),
           },
         ],
+        actionLog: [...(lead.actionLog || []), createAction('whatsapp', `Opened WhatsApp Web for ${to}`)],
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send WhatsApp message');
+      setError(err instanceof Error ? err.message : 'Failed to open WhatsApp message');
     } finally {
       setWhatsAppLoadingId(null);
     }
@@ -1128,7 +1170,7 @@ const CRMPage: React.FC<CRMPageProps> = ({ currentUser }) => {
                       <td className="p-4">
                         <div className="flex flex-wrap gap-2">
                           <button onClick={() => addCommunication(lead, 'call')} className="rounded bg-brand-primary p-2 text-brand-light hover:text-white" title="Log call"><Phone size={14} /></button>
-                          <button onClick={() => sendWhatsAppMessage(lead)} disabled={whatsAppLoadingId === lead.id} className="rounded bg-brand-primary p-2 text-brand-light hover:text-white disabled:opacity-50" title="Send WhatsApp"><MessageSquare size={14} /></button>
+                          <button onClick={() => openWhatsAppMessage(lead)} disabled={whatsAppLoadingId === lead.id} className="rounded bg-brand-primary p-2 text-brand-light hover:text-white disabled:opacity-50" title="Open WhatsApp Web"><MessageSquare size={14} /></button>
                           <button onClick={() => openLeadEmail(lead)} disabled={emailLoadingId === lead.id} className="rounded bg-brand-primary p-2 text-brand-light hover:text-white disabled:opacity-50" title="Send email"><Mail size={14} /></button>
                           <button onClick={() => addTask(lead)} className="rounded bg-brand-primary p-2 text-brand-light hover:text-white" title="Add task"><Plus size={14} /></button>
                           <button onClick={() => addDeal(lead)} className="rounded bg-brand-primary p-2 text-brand-light hover:text-white" title="Create deal"><Briefcase size={14} /></button>
@@ -1233,7 +1275,8 @@ const CRMPage: React.FC<CRMPageProps> = ({ currentUser }) => {
                     <div className="space-y-2">
                       <div className="mb-2 flex gap-2">
                         <button onClick={() => addCommunication(selectedLead, 'call')} className="rounded bg-brand-primary px-3 py-1.5 text-xs text-brand-light hover:text-white">Log Call</button>
-                        <button onClick={() => sendWhatsAppMessage(selectedLead)} disabled={whatsAppLoadingId === selectedLead.id} className="rounded bg-brand-primary px-3 py-1.5 text-xs text-brand-light hover:text-white disabled:opacity-50">WhatsApp</button>
+                        <button onClick={() => openWhatsAppMessage(selectedLead)} disabled={whatsAppLoadingId === selectedLead.id} className="rounded bg-brand-primary px-3 py-1.5 text-xs text-brand-light hover:text-white disabled:opacity-50">WhatsApp Web</button>
+                        <button onClick={editWhatsAppTemplate} className="rounded border border-brand-accent px-3 py-1.5 text-xs text-brand-light hover:text-white">Template</button>
                         <button onClick={() => openLeadEmail(selectedLead)} className="rounded bg-brand-primary px-3 py-1.5 text-xs text-brand-light hover:text-white">Email</button>
                       </div>
                       {(selectedLead.communications || []).map(comm => (

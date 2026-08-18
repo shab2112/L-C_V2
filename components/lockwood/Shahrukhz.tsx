@@ -15,7 +15,7 @@ interface ShahrukhzProps {
 export const Shahrukhz: React.FC<ShahrukhzProps> = ({ onNavigate }) => {
    const handleWhatsApp = () => {
       const message = encodeURIComponent("Hi Mr. Muqthar, I am interested in Shahrukhz by Danube. Please provide more details regarding office availability and the 1% payment plan.");
-      window.open(`https://wa.me/971564144401?text=${message}`, '_blank');
+      window.open(`https://wa.me/971585871869?text=${message}`, '_blank');
    };
 
    // Scroll to top on mount

@@ -43,7 +43,7 @@ const PrintableReport: React.FC<PrintableReportProps> = ({ report, primaryCity }
               margin: 0,
               letterSpacing: '-0.02em'
             }}>
-              Lockwood and Carter Real Estate
+              Lockwood & Carter Market Comparison Report
             </h1>
           </div>
         </header>
@@ -69,7 +69,7 @@ const PrintableReport: React.FC<PrintableReportProps> = ({ report, primaryCity }
             <section style={{ marginTop: '50pt', borderTop: '1pt solid #EEE', paddingTop: '30pt', color: '#000000',
         opacity: 1, }}>
               <h2 style={{ fontSize: '14pt', fontWeight: 'bold', color: '#000000', opacity: 1, marginBottom: '15pt' }}>
-                Data Grounding & Sources
+                Vetted Data & Sources
               </h2>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {report.sources.map((source, index) => (

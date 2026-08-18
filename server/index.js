@@ -3,8 +3,191 @@ import https from 'https';
 import { readFileSync, existsSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import * as XLSX from 'xlsx';
 
 const RESEND_URL = 'https://api.resend.com/emails';
+const HOUSE_PRICE_DATA_URL = process.env.HOUSE_PRICE_DATA_URL || 'https://diuorqykbykouqnlxcxe.supabase.co/storage/v1/object/public/house_price/hp_data.xlsx';
+
+const OFFICIAL_REAL_ESTATE_SOURCES = {
+  Amsterdam: [
+    { name: 'Kadaster Netherlands property register', url: 'https://www.kadaster.nl/', use: 'registered property transactions and ownership data' },
+    { name: 'Statistics Netherlands (CBS)', url: 'https://www.cbs.nl/', use: 'official housing and price statistics' },
+  ],
+  Andorra: [
+    { name: 'Govern d\'Andorra Department of Statistics', url: 'https://www.estadistica.ad/', use: 'official national housing and construction statistics' },
+  ],
+  Athens: [
+    { name: 'Bank of Greece residential property price indices', url: 'https://www.bankofgreece.gr/', use: 'official residential property price indices' },
+    { name: 'Hellenic Statistical Authority (ELSTAT)', url: 'https://www.statistics.gr/', use: 'official construction, housing and macroeconomic statistics' },
+  ],
+  Bangkok: [
+    { name: 'Bank of Thailand property indicators', url: 'https://www.bot.or.th/', use: 'official property and macro-financial indicators' },
+    { name: 'Real Estate Information Center, Government Housing Bank', url: 'https://www.reic.or.th/', use: 'official Thai housing-market information' },
+  ],
+  Beijing: [
+    { name: 'National Bureau of Statistics of China', url: 'https://www.stats.gov.cn/', use: 'official housing price indices for major cities' },
+  ],
+  Belgrade: [
+    { name: 'Republic Geodetic Authority of Serbia', url: 'https://www.rgz.gov.rs/', use: 'official real estate register and market reports' },
+  ],
+  Berlin: [
+    { name: 'Destatis Germany house price statistics', url: 'https://www.destatis.de/', use: 'official German house price index' },
+    { name: 'Berlin Committee of Valuation Experts', url: 'https://www.berlin.de/gutachterausschuss/', use: 'official Berlin land and property market reports' },
+  ],
+  Bratislava: [
+    { name: 'National Bank of Slovakia residential property prices', url: 'https://www.nbs.sk/', use: 'official Slovak residential property price statistics' },
+    { name: 'Statistical Office of the Slovak Republic', url: 'https://slovak.statistics.sk/', use: 'official demographic and construction statistics' },
+  ],
+  Brussels: [
+    { name: 'Statbel Belgium property prices', url: 'https://statbel.fgov.be/', use: 'official Belgian property price statistics' },
+  ],
+  Budapest: [
+    { name: 'Hungarian Central Statistical Office', url: 'https://www.ksh.hu/', use: 'official housing price and housing-market statistics' },
+    { name: 'Magyar Nemzeti Bank house price index', url: 'https://www.mnb.hu/', use: 'official Hungarian house price index' },
+  ],
+  Copenhagen: [
+    { name: 'Statistics Denmark property sales', url: 'https://www.dst.dk/', use: 'official property sales and price statistics' },
+  ],
+  Doha: [
+    { name: 'Qatar Ministry of Justice real estate registration', url: 'https://www.moj.gov.qa/', use: 'official real estate transaction and registration data' },
+    { name: 'Planning and Statistics Authority Qatar', url: 'https://www.psa.gov.qa/', use: 'official economic and population statistics' },
+  ],
+  Dubai: [
+    { name: 'Dubai Land Department real estate transactions', url: 'https://dubailand.gov.ae/en/eservices/real-estate-transaction/', use: 'official DLD transaction data' },
+    { name: 'Dubai Pulse DLD transactions open data', url: 'https://www.dubaipulse.gov.ae/data/dld-transactions/dld_transactions-open', use: 'official DLD open transaction dataset' },
+  ],
+  Dublin: [
+    { name: 'Central Statistics Office Ireland residential property price index', url: 'https://www.cso.ie/', use: 'official residential property price index' },
+    { name: 'Property Services Regulatory Authority Property Price Register', url: 'https://www.propertypriceregister.ie/', use: 'official property sale-price register' },
+  ],
+  Helsinki: [
+    { name: 'Statistics Finland dwelling prices', url: 'https://stat.fi/', use: 'official dwelling price statistics' },
+  ],
+  'Hong Kong': [
+    { name: 'Rating and Valuation Department Hong Kong property market statistics', url: 'https://www.rvd.gov.hk/', use: 'official private domestic price and rent indices' },
+  ],
+  Lisbon: [
+    { name: 'Statistics Portugal (INE) house price index', url: 'https://www.ine.pt/', use: 'official Portuguese house price index and housing statistics' },
+  ],
+  Ljubljana: [
+    { name: 'Surveying and Mapping Authority of Slovenia', url: 'https://www.gov.si/en/state-authorities/bodies-within-ministries/surveying-and-mapping-authority/', use: 'official real estate market and transaction data' },
+    { name: 'Statistical Office of the Republic of Slovenia', url: 'https://www.stat.si/', use: 'official housing and price statistics' },
+  ],
+  London: [
+    { name: 'UK House Price Index, HM Land Registry', url: 'https://www.gov.uk/government/collections/uk-house-price-index-reports', use: 'official UK HPI reports and data downloads' },
+  ],
+  'Luxembourg City': [
+    { name: 'STATEC Luxembourg housing statistics', url: 'https://statistiques.public.lu/', use: 'official Luxembourg housing statistics' },
+    { name: 'Observatoire de l\'Habitat Luxembourg', url: 'https://logement.public.lu/', use: 'official housing observatory market data' },
+  ],
+  Macau: [
+    { name: 'Statistics and Census Service Macau', url: 'https://www.dsec.gov.mo/', use: 'official residential transaction and price statistics' },
+  ],
+  Madrid: [
+    { name: 'INE Spain house price index', url: 'https://www.ine.es/', use: 'official Spanish house price index' },
+    { name: 'MITMA housing statistics Spain', url: 'https://www.mitma.gob.es/', use: 'official appraisal and housing-market statistics' },
+  ],
+  Manila: [
+    { name: 'Bangko Sentral ng Pilipinas residential real estate price index', url: 'https://www.bsp.gov.ph/', use: 'official residential real estate price index' },
+    { name: 'Philippine Statistics Authority', url: 'https://psa.gov.ph/', use: 'official national statistics' },
+  ],
+  Milan: [
+    { name: 'Agenzia delle Entrate OMI property market observatory', url: 'https://www.agenziaentrate.gov.it/', use: 'official Italian property market quotations and transactions' },
+    { name: 'ISTAT housing prices', url: 'https://www.istat.it/', use: 'official Italian house price index' },
+  ],
+  Montevideo: [
+    { name: 'Instituto Nacional de Estadistica Uruguay', url: 'https://www.ine.gub.uy/', use: 'official national housing and price statistics' },
+    { name: 'Direccion Nacional de Catastro Uruguay', url: 'https://www.gub.uy/direccion-nacional-catastro/', use: 'official cadastral and property records' },
+  ],
+  Moscow: [
+    { name: 'Rosreestr Russian real estate register', url: 'https://rosreestr.gov.ru/', use: 'official property registration and cadastral information' },
+    { name: 'Rosstat housing statistics', url: 'https://rosstat.gov.ru/', use: 'official Russian housing and price statistics' },
+  ],
+  Mumbai: [
+    { name: 'Reserve Bank of India House Price Index', url: 'https://www.rbi.org.in/', use: 'official Indian house price index' },
+    { name: 'National Housing Bank RESIDEX', url: 'https://nhb.org.in/', use: 'official Indian residential price index' },
+  ],
+  'New York': [
+    { name: 'New York City Department of Finance rolling sales data', url: 'https://www.nyc.gov/site/finance/property/property-rolling-sales-data.page', use: 'official NYC property sales data' },
+    { name: 'Federal Housing Finance Agency House Price Index', url: 'https://www.fhfa.gov/data/hpi', use: 'official US house price index' },
+  ],
+  Oslo: [
+    { name: 'Statistics Norway housing prices', url: 'https://www.ssb.no/', use: 'official Norwegian house price statistics' },
+    { name: 'Kartverket land register', url: 'https://www.kartverket.no/', use: 'official Norwegian land and property register' },
+  ],
+  Paris: [
+    { name: 'INSEE housing price indices', url: 'https://www.insee.fr/', use: 'official French housing price indices' },
+    { name: 'Notaires de France property statistics', url: 'https://www.notaires.fr/', use: 'official notarial property transaction statistics' },
+  ],
+  Prague: [
+    { name: 'Czech Statistical Office house price statistics', url: 'https://www.czso.cz/', use: 'official Czech house price statistics' },
+    { name: 'Czech National Bank residential property prices', url: 'https://www.cnb.cz/', use: 'official residential property price indicators' },
+  ],
+  'Puerto Rico': [
+    { name: 'Federal Housing Finance Agency House Price Index', url: 'https://www.fhfa.gov/data/hpi', use: 'official US house price index including Puerto Rico series where available' },
+    { name: 'Puerto Rico Planning Board', url: 'https://jp.pr.gov/', use: 'official Puerto Rico planning and economic data' },
+  ],
+  Reykjavik: [
+    { name: 'Registers Iceland property register', url: 'https://www.skra.is/', use: 'official Iceland property transaction and register data' },
+    { name: 'Statistics Iceland housing prices', url: 'https://www.statice.is/', use: 'official Iceland housing price statistics' },
+  ],
+  Riga: [
+    { name: 'Central Statistical Bureau of Latvia', url: 'https://stat.gov.lv/', use: 'official Latvian housing and price statistics' },
+    { name: 'State Land Service Latvia', url: 'https://www.vzd.gov.lv/', use: 'official cadastral and real estate market data' },
+  ],
+  Seoul: [
+    { name: 'Korea Real Estate Board', url: 'https://www.reb.or.kr/', use: 'official Korean real estate price and transaction statistics' },
+    { name: 'Bank of Korea economic statistics', url: 'https://www.bok.or.kr/', use: 'official macroeconomic and financial statistics' },
+  ],
+  Singapore: [
+    { name: 'Urban Redevelopment Authority property data', url: 'https://www.ura.gov.sg/property-data/', use: 'official private residential price, rental, vacancy, supply and stock data' },
+    { name: 'data.gov.sg URA private residential property price index', url: 'https://data.gov.sg/', use: 'official Singapore open-data copy of URA residential price indices' },
+  ],
+  Stockholm: [
+    { name: 'Statistics Sweden real estate prices', url: 'https://www.scb.se/', use: 'official Swedish real estate price statistics' },
+    { name: 'Lantmateriet property register', url: 'https://www.lantmateriet.se/', use: 'official Swedish land and property register' },
+  ],
+  'Taipei City': [
+    { name: 'Taiwan Ministry of the Interior real estate transaction prices', url: 'https://lvr.land.moi.gov.tw/', use: 'official actual-price registration data' },
+    { name: 'Taipei City Department of Land Administration', url: 'https://land.gov.taipei/', use: 'official Taipei land and real estate data' },
+  ],
+  Tallinn: [
+    { name: 'Estonian Land Board transaction database', url: 'https://www.maaamet.ee/', use: 'official Estonian land and transaction data' },
+    { name: 'Statistics Estonia housing statistics', url: 'https://www.stat.ee/', use: 'official housing and price statistics' },
+  ],
+  Tokyo: [
+    { name: 'MLIT Japan real estate price index', url: 'https://www.mlit.go.jp/', use: 'official Japanese real estate price index' },
+  ],
+  Toronto: [
+    { name: 'Statistics Canada new housing price index', url: 'https://www.statcan.gc.ca/', use: 'official Canadian housing price statistics' },
+    { name: 'Canada Mortgage and Housing Corporation', url: 'https://www.cmhc-schl.gc.ca/', use: 'official housing-market and supply data' },
+  ],
+  Vienna: [
+    { name: 'Statistics Austria house price index', url: 'https://www.statistik.at/', use: 'official Austrian house price index' },
+  ],
+  Vilnius: [
+    { name: 'State Enterprise Centre of Registers Lithuania', url: 'https://www.registrucentras.lt/', use: 'official Lithuanian real estate transaction and register data' },
+    { name: 'Statistics Lithuania', url: 'https://osp.stat.gov.lt/', use: 'official housing and price statistics' },
+  ],
+  Warsaw: [
+    { name: 'Narodowy Bank Polski residential real estate prices', url: 'https://www.nbp.pl/', use: 'official Polish residential real estate price database' },
+    { name: 'Statistics Poland', url: 'https://stat.gov.pl/', use: 'official housing and construction statistics' },
+  ],
+  Zagreb: [
+    { name: 'Croatian Bureau of Statistics', url: 'https://dzs.gov.hr/', use: 'official Croatian housing and price statistics' },
+    { name: 'eNekretnine Croatia', url: 'https://nekretnine.mgipu.hr/', use: 'official Croatian real estate transaction system' },
+  ],
+  Zurich: [
+    { name: 'Swiss Federal Statistical Office residential property price index', url: 'https://www.bfs.admin.ch/', use: 'official Swiss residential property price index' },
+    { name: 'Statistical Office of the Canton of Zurich', url: 'https://www.zh.ch/', use: 'official Zurich cantonal statistics' },
+  ],
+};
+
+const OFFICIAL_FALLBACK_SOURCES = [
+  { name: 'BIS residential property price statistics', url: 'https://www.bis.org/statistics/pp.htm', use: 'official international residential property price statistics fallback' },
+  { name: 'OECD analytical house price indicators', url: 'https://www.oecd.org/en/data/indicators/housing-prices.html', use: 'official cross-country housing price indicator fallback' },
+  { name: 'Eurostat housing price statistics', url: 'https://ec.europa.eu/eurostat/web/housing-price-statistics/information-data', use: 'official European house price and sales fallback where applicable' },
+];
 
 function loadDotEnv() {
   if (!existsSync('.env')) return;
@@ -23,7 +206,8 @@ loadDotEnv();
 
 const PORT = Number(process.env.PORT || 3001);
 const WHATSAPP_GRAPH_API_BASE = process.env.WHATSAPP_GRAPH_API_BASE || 'https://graph.facebook.com/v23.0';
-const WHATSAPP_BUSINESS_NUMBER = normalizePhone(process.env.WHATSAPP_BUSINESS_NUMBER || '971564144401').replace(/^\+/, '');
+const WHATSAPP_BUSINESS_NUMBER = normalizePhone(process.env.WHATSAPP_BUSINESS_NUMBER || '971585871869').replace(/^\+/, '');
+let housePriceCache = null;
 
 const allowInsecureNodeTls = (process.env.NODE_ALLOW_INSECURE_TLS || 'true').toLowerCase() !== 'false';
 
@@ -137,6 +321,122 @@ function parseBudget(value) {
   if (unit.startsWith('m')) return amount * 1_000_000;
   if (unit.startsWith('k') || unit.startsWith('thousand')) return amount * 1_000;
   return amount;
+}
+
+function parseNumericCell(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const text = String(value).trim();
+  const negative = /^\(.*\)$/.test(text) || /^-/.test(text);
+  const numeric = Number(text.replace(/[()$,%\s,]|pp/g, '').replace(/^\+/, ''));
+  if (Number.isNaN(numeric)) return null;
+  return negative ? -Math.abs(numeric) : numeric;
+}
+
+function cleanHousePriceRow(row) {
+  return {
+    rank: parseNumericCell(row[0]),
+    city: String(row[1] || '').trim(),
+    country: String(row[2] || '').trim(),
+    usdPerSqm: parseNumericCell(row[3]),
+    usdPerSqft: parseNumericCell(row[4]),
+    priceComparisonVsDubai: String(row[5] || '').trim(),
+    hpiNominal1Y: parseNumericCell(row[6]),
+    hpiNominal1YVsDubaiPp: parseNumericCell(row[7]),
+    hpiInflationAdjusted1Y: parseNumericCell(row[8]),
+    hpiInflationAdjusted1YVsDubaiPp: parseNumericCell(row[9]),
+    hpiNominal5Y: parseNumericCell(row[10]),
+    hpiNominal5YVsDubaiPp: parseNumericCell(row[11]),
+    hpiInflationAdjusted5Y: parseNumericCell(row[12]),
+    hpiInflationAdjusted5YVsDubaiPp: parseNumericCell(row[13]),
+    hpiNominal10Y: parseNumericCell(row[14]),
+    hpiNominal10YVsDubaiPp: parseNumericCell(row[15]),
+    hpiInflationAdjusted10Y: parseNumericCell(row[16]),
+    hpiInflationAdjusted10YVsDubaiPp: parseNumericCell(row[17]),
+  };
+}
+
+async function getHousePriceRows() {
+  const now = Date.now();
+  if (housePriceCache && now - housePriceCache.loadedAt < 15 * 60 * 1000) {
+    return housePriceCache;
+  }
+
+  const response = await fetch(HOUSE_PRICE_DATA_URL, {
+    headers: {
+      'User-Agent': 'lockwood-carter-market-comparison/1.0',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`House price dataset fetch failed: ${response.status}`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const sheetName = workbook.SheetNames.includes('hpdata') ? 'hpdata' : workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: false })
+    .slice(2)
+    .map(cleanHousePriceRow)
+    .filter(row => row.city);
+
+  housePriceCache = {
+    loadedAt: now,
+    sourceUrl: HOUSE_PRICE_DATA_URL,
+    sourceLastModified: response.headers.get('last-modified') || null,
+    sheetName,
+    rows,
+  };
+
+  return housePriceCache;
+}
+
+function selectHousePriceRows(cities, dataset) {
+  const byCity = new Map(dataset.rows.map(row => [row.city.toLowerCase(), row]));
+  const matchedRows = [];
+  const unavailableCities = [];
+
+  for (const city of cities) {
+    const match = byCity.get(String(city).toLowerCase());
+    if (match) {
+      matchedRows.push(match);
+    } else {
+      unavailableCities.push(city);
+    }
+  }
+
+  return { matchedRows, unavailableCities };
+}
+
+function getOfficialRealEstateSources(cities) {
+  return cities.map(city => ({
+    city,
+    primarySources: OFFICIAL_REAL_ESTATE_SOURCES[city] || [],
+    fallbackSources: OFFICIAL_FALLBACK_SOURCES,
+    coverageNote: OFFICIAL_REAL_ESTATE_SOURCES[city]
+      ? 'Use primary sources first. Use fallback official institutional sources only when city-specific official data does not cover the metric.'
+      : 'No city-specific official source is configured. Use fallback official institutional sources and mark city-specific adviser verification as required.',
+  }));
+}
+
+async function handleMarketComparisonReportCities(req, res) {
+  if (req.method !== 'GET') {
+    sendJson(res, 405, { success: false, error: 'Method not allowed' });
+    return;
+  }
+
+  const dataset = await getHousePriceRows();
+  const cities = [...new Set(dataset.rows.map(row => row.city).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+
+  sendJson(res, 200, {
+    success: true,
+    cities,
+    sourceUrl: dataset.sourceUrl,
+    sourceLastModified: dataset.sourceLastModified,
+    sheetName: dataset.sheetName,
+    loadedAt: new Date(dataset.loadedAt).toISOString(),
+  });
 }
 
 function createAction(type, detail, actor = 'admin') {
@@ -710,6 +1010,150 @@ async function handleDarieChat(req, res) {
   });
 }
 
+async function handleMarketComparisonReports(req, res) {
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { success: false, error: 'Method not allowed' });
+    return;
+  }
+
+  const body = await readBody(req);
+  const primaryCity = typeof body.primaryCity === 'string' ? body.primaryCity.trim() : '';
+  const comparisonCities = asArray(body.comparisonCities).map(city => String(city).trim()).filter(Boolean).slice(0, 8);
+  const selectedMetrics = asArray(body.selectedMetrics).map(metric => String(metric).trim()).filter(Boolean).slice(0, 12);
+
+  if (!primaryCity) {
+    sendJson(res, 400, { success: false, error: 'Primary city is required.' });
+    return;
+  }
+
+  if (!selectedMetrics.length) {
+    sendJson(res, 400, { success: false, error: 'At least one metric is required.' });
+    return;
+  }
+
+  const comparedCities = Array.from(new Set([primaryCity, ...comparisonCities]));
+  const officialSourceRegistry = getOfficialRealEstateSources(comparedCities);
+  let housePriceData = {
+    sourceUrl: HOUSE_PRICE_DATA_URL,
+    sourceLastModified: null,
+    sheetName: null,
+    matchedRows: [],
+    unavailableCities: comparedCities,
+    loadedAt: null,
+    error: null,
+  };
+
+  try {
+    const dataset = await getHousePriceRows();
+    const selected = selectHousePriceRows(comparedCities, dataset);
+    housePriceData = {
+      sourceUrl: dataset.sourceUrl,
+      sourceLastModified: dataset.sourceLastModified,
+      sheetName: dataset.sheetName,
+      matchedRows: selected.matchedRows,
+      unavailableCities: selected.unavailableCities,
+      loadedAt: new Date(dataset.loadedAt).toISOString(),
+      error: null,
+    };
+  } catch (error) {
+    housePriceData.error = error instanceof Error ? error.message : 'House price dataset unavailable';
+  }
+
+  const messages = [
+    {
+      role: 'system',
+      content: [
+        'You are the Lockwood & Carter Market Comparison Reports engine.',
+        'The report is for advisers and clients evaluating which city currently offers stronger real estate investment fundamentals.',
+        'Be analytical, practical, and explicit about uncertainty. Do not invent exact live figures where you do not have source-grounded confidence.',
+        'Keep the richer advisory report structure: executive summary, market snapshot, quantitative comparison, metric-by-metric analysis, scoring matrix, investor suitability, risk matrix, ranked investment view, and client-facing advisory note.',
+        'All comparison data must be presented in markdown tables. Do not present comparative numbers or scoring as prose-only paragraphs.',
+        'Use the supplied vetted house-price rows as authoritative only for relevant house-price and HPI fields for any selected city that appears in the dataset.',
+        'When using the priceComparisonVsDubai field, label it as "Dataset Price vs Dubai". Do not describe it as a USD/sqft premium or discount unless you calculate that delta directly from usdPerSqft values and clearly label it as a calculated USD/sqft difference.',
+        'If your broader market knowledge conflicts with the vetted house-price rows, replace the older house-price or HPI figure with the vetted dataset figure and briefly note that the L&C vetted quarterly dataset is being used for that metric.',
+        'Do not let the vetted house-price data overpower the report. Use it to complement pricing, entry-cost, momentum, and HPI sections where available; use broader analysis for liquidity, regulations, taxes, yields, supply, currency, and risk where vetted HP data does not cover the metric.',
+        'Use the supplied official real estate source registry as the authenticity checklist for each selected city. Prefer government land departments, cadastral bodies, real estate regulators, central banks, and national statistics offices before private portals or media commentary.',
+        'If a metric is not covered by the vetted house-price data or the configured official source registry, do not invent a current figure. Use directional wording and mark "Adviser verification required" in the relevant table cell.',
+        'Do not mention the AI model, model provider, prompt, tokens, or generation mechanics anywhere in the report.',
+        'Avoid overly absolute investment labels like "Strong Buy" or "Avoid" unless the data clearly supports them. Prefer measured advisory labels such as "Most attractive", "Selective entry", "Monitor", or "Lower risk-adjusted appeal".',
+        'Use clear markdown sections, concise tables, and action-oriented recommendations.',
+        'Include: executive summary, market snapshot, vetted data supplement, metric-by-metric comparison tables, scoring matrix, investor suitability table, risk matrix, ranked investment view, and next-step advisory notes.',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: [
+        'Generate a market comparison report.',
+        `Primary city: ${primaryCity}`,
+        `Comparison cities: ${comparisonCities.length ? comparisonCities.join(', ') : 'None selected'}`,
+        `Metrics: ${selectedMetrics.join(', ')}`,
+        '',
+        'VETTED HOUSE-PRICE DATA SOURCE:',
+        `Source: ${housePriceData.sourceUrl}`,
+        `Sheet: ${housePriceData.sheetName || 'Unavailable'}`,
+        `Source last modified: ${housePriceData.sourceLastModified || 'Not provided by storage'}`,
+        `Dataset cache loaded: ${housePriceData.loadedAt || 'Unavailable'}`,
+        `Rows available for selected cities: ${housePriceData.matchedRows.map(row => row.city).join(', ') || 'None'}`,
+        `Rows unavailable for selected cities: ${housePriceData.unavailableCities.join(', ') || 'None'}`,
+        housePriceData.error ? `Dataset warning: ${housePriceData.error}` : '',
+        '',
+        'VETTED HOUSE-PRICE ROWS JSON:',
+        JSON.stringify(housePriceData.matchedRows, null, 2),
+        '',
+        'OFFICIAL REAL ESTATE SOURCE REGISTRY FOR SELECTED CITIES:',
+        JSON.stringify(officialSourceRegistry, null, 2),
+        '',
+        'For each selected metric, compare the primary city against the comparison cities.',
+        'Use this exact report structure:',
+        '1. Executive Summary - concise paragraphs plus a one-row conclusion table.',
+        '2. Market Snapshot - table comparing each city across price level, momentum, liquidity, regulatory/tax friction, and investor fit.',
+        '3. Vetted House-Price Data Supplement - table using only selected cities available in the L&C vetted dataset, plus a short coverage note for unavailable cities. Include a compact Official Source Coverage table listing each city, primary official source names, and what should be verified there.',
+        '4. Metric-by-Metric Comparison - for every selected metric, include a table with one row per city and columns for evidence, interpretation, and adviser verification needed.',
+        '5. Scoring Matrix - table with 1-5 scores for entry price, 1Y real momentum, 5Y real growth, relative affordability vs Dubai, liquidity/regulatory risk, and client suitability. Explain that scores are advisory, not raw source data.',
+        '6. Investor Suitability - table by investor profile such as yield-focused, capital-growth, safe-haven, lifestyle, and foreign non-resident buyer.',
+        '7. Risk Matrix - table covering market, liquidity, currency, tax/regulatory, supply, and exit risks.',
+        '8. Ranked Investment View - table ranking the cities with rationale and caveats.',
+        '9. Client-Facing Advisory Note - concise recommendation that an adviser can share.',
+        'End with a short source note naming the L&C vetted quarterly house-price dataset and the official source registry where used.',
+      ].filter(Boolean).join('\n'),
+    },
+  ];
+
+  const { parsed, model } = await postNvidia({ messages, max_tokens: 4096 });
+  const report = parsed.choices?.[0]?.message?.content || '';
+  const tokenCount = Number(parsed.usage?.total_tokens || 0);
+
+  sendJson(res, 200, {
+    success: true,
+    report,
+    officialSourceRegistry,
+    sources: [
+      {
+        web: {
+          title: 'L&C vetted quarterly house-price dataset',
+          uri: HOUSE_PRICE_DATA_URL,
+        },
+      },
+      ...officialSourceRegistry.flatMap(entry =>
+        entry.primarySources.map(source => ({
+          web: {
+            title: `${entry.city}: ${source.name}`,
+            uri: source.url,
+          },
+        }))
+      ),
+    ],
+    tokenCount,
+    cost: 0,
+    model,
+    primaryCity,
+    comparisonCities,
+    metrics: selectedMetrics,
+    generatedAt: new Date().toISOString(),
+    housePriceData,
+  });
+}
+
 async function handleSendEmail(req, res) {
   if (req.method !== 'POST') {
     sendJson(res, 405, { success: false, error: 'Method not allowed' });
@@ -789,7 +1233,7 @@ async function handleSendWhatsApp(req, res) {
     sendJson(res, 503, {
       success: false,
       businessNumber: WHATSAPP_BUSINESS_NUMBER,
-      error: 'WhatsApp Cloud API is not configured. Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID in .env for +971564144401.',
+      error: 'WhatsApp Cloud API is not configured. Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID in .env for +971585871869.',
     });
     return;
   }
@@ -867,6 +1311,16 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === '/api/darie-chat') {
       await handleDarieChat(req, res);
+      return;
+    }
+
+    if (url.pathname === '/api/market-comparison-reports/cities') {
+      await handleMarketComparisonReportCities(req, res);
+      return;
+    }
+
+    if (url.pathname === '/api/market-comparison-reports') {
+      await handleMarketComparisonReports(req, res);
       return;
     }
 

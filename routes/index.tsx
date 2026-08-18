@@ -31,7 +31,7 @@ import ChangePasswordPage from '../pages/auth/ChangePasswordPage';
 // Protected pages
 import DashboardPage from '../pages/dashboard/DashboardPage';
 import ContentStudioPage from '../pages/dashboard/ContentStudioPage';
-import MarketIntelligencePage from '../pages/dashboard/MarketIntelligencePage';
+import MarketComparisonReportsPage from '../pages/dashboard/MarketComparisonReportsPage';
 import FinanceIntelligencePage from '../pages/dashboard/FinanceIntelligencePage';
 import ClientsPage from '../pages/dashboard/ClientsPage';
 import ContractsPage from '../pages/dashboard/ContractsPage';
@@ -164,8 +164,12 @@ export const createAppRouter = (
           element: <ContentStudioPage currentUser={currentUser} />,
         },
         {
+          path: 'market-comparison-reports',
+          element: <MarketComparisonReportsPage />,
+        },
+        {
           path: 'market-intelligence',
-          element: <MarketIntelligencePage />,
+          element: <Navigate to="/dashboard/market-comparison-reports" replace />,
         },
         {
           path: 'finance-intelligence',

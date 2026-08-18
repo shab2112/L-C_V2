@@ -727,34 +727,47 @@ export const generateMarketReport = async (
   selectedMetrics: string[]
 ): Promise<any> => {
   try {
-    const prompt = `Generate a comprehensive market intelligence report comparing real estate markets.
+    const response = await fetch('/api/market-comparison-reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ primaryCity, comparisonCities, selectedMetrics }),
+    });
 
-Primary City: ${primaryCity}
-Comparison Cities: ${comparisonCities.join(', ')}
-Metrics to analyze: ${selectedMetrics.join(', ')}
+    const text = await response.text();
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(`Market Comparison Reports API returned a non-JSON response (${response.status}).`);
+    }
 
-Provide detailed analysis for each metric across all cities. Include:
-- Current market conditions
-- Trends and projections
-- Investment opportunities
-- Risk factors
-- Key statistics
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || `Market Comparison Reports API failed with status ${response.status}.`);
+    }
 
-Format the response as structured data that can be visualized.`;
-
-    const result = await callGeminiAPI(prompt, 4096);
-    
-    return {
-      report: result,
-      primaryCity,
-      comparisonCities,
-      metrics: selectedMetrics,
-      generatedAt: new Date().toISOString()
-    };
+    return data;
   } catch (error) {
     console.error("Error generating market report:", error);
-    throw new Error("Failed to generate market report");
+    throw error instanceof Error ? error : new Error("Failed to generate market report");
   }
+};
+
+export const fetchMarketComparisonCities = async (): Promise<string[]> => {
+  const response = await fetch('/api/market-comparison-reports/cities');
+  const text = await response.text();
+  let data: any = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Market Comparison cities API returned a non-JSON response (${response.status}).`);
+  }
+
+  if (!response.ok || !data.success || !Array.isArray(data.cities)) {
+    throw new Error(data.error || `Market Comparison cities API failed with status ${response.status}.`);
+  }
+
+  return data.cities.filter((city: unknown): city is string => typeof city === 'string' && city.trim().length > 0);
 };
 
 // Additional utility functions

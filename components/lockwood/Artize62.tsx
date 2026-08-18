@@ -10,7 +10,7 @@ interface Artize62Props {
 export const Artize62: React.FC<Artize62Props> = ({ onNavigate }) => {
    const handleWhatsApp = () => {
       const message = encodeURIComponent("Hi, I am interested in viewing Villa Artize 62 in Al Furjan. Please schedule a private tour.");
-      window.open(`https://wa.me/971564144401?text=${message}`, '_blank');
+      window.open(`https://wa.me/971585871869?text=${message}`, '_blank');
    };
 
    // Scroll to top on mount to ensure correct view

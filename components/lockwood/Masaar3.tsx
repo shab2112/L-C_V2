@@ -10,7 +10,7 @@ interface Masaar3Props {
 export const Masaar3: React.FC<Masaar3Props> = ({ onNavigate }) => {
    const handleWhatsApp = () => {
       const message = encodeURIComponent("Hi Mr. Muqthar, I am interested in Masaar 3 (Phase 1) by Arada. Please provide details on availability and payment plans.");
-      window.open(`https://wa.me/971564144401?text=${message}`, '_blank');
+      window.open(`https://wa.me/971585871869?text=${message}`, '_blank');
    };
 
    // Scroll to top on mount

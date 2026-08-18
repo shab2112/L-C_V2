@@ -107,7 +107,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
   };
 
   const handleWhatsApp = () => {
-    window.open('https://wa.me/971564144401', '_blank');
+    window.open('https://wa.me/971585871869', '_blank');
   };
 
   return (

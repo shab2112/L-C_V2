@@ -13,7 +13,7 @@ export const Avior: React.FC<AviorProps> = ({ onNavigate }) => {
 
   const handleWhatsApp = () => {
     const message = encodeURIComponent("Hi Lockwood & Carter, I'm interested in Avior by Acube Developments on Sheikh Zayed Road. Please provide details on the different residential levels and pricing.");
-    window.open(`https://wa.me/971564144401?text=${message}`, '_blank');
+    window.open(`https://wa.me/971585871869?text=${message}`, '_blank');
   };
 
   const handleInvestorDeckClick = () => {

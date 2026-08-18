@@ -89,6 +89,41 @@ export interface MarketReportResult {
   sources: any[];
   tokenCount: number;
   cost: number;
+  model?: string;
+  primaryCity?: string;
+  comparisonCities?: string[];
+  metrics?: string[];
+  generatedAt?: string;
+  housePriceData?: {
+    sourceUrl: string;
+    sourceLastModified?: string | null;
+    sheetName?: string | null;
+    matchedRows: HousePriceDataRow[];
+    unavailableCities: string[];
+    loadedAt?: string | null;
+    error?: string | null;
+  };
+}
+
+export interface HousePriceDataRow {
+  rank?: number | null;
+  city: string;
+  country: string;
+  usdPerSqm?: number | null;
+  usdPerSqft?: number | null;
+  priceComparisonVsDubai?: string;
+  hpiNominal1Y?: number | null;
+  hpiNominal1YVsDubaiPp?: number | null;
+  hpiInflationAdjusted1Y?: number | null;
+  hpiInflationAdjusted1YVsDubaiPp?: number | null;
+  hpiNominal5Y?: number | null;
+  hpiNominal5YVsDubaiPp?: number | null;
+  hpiInflationAdjusted5Y?: number | null;
+  hpiInflationAdjusted5YVsDubaiPp?: number | null;
+  hpiNominal10Y?: number | null;
+  hpiNominal10YVsDubaiPp?: number | null;
+  hpiInflationAdjusted10Y?: number | null;
+  hpiInflationAdjusted10YVsDubaiPp?: number | null;
 }
 
 export interface ChatMessage {

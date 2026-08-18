@@ -30,7 +30,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser }) => {
     { id: 'dashboard', label: 'Dashboard', icon: HomeIcon, path: '/dashboard' },
     { id: 'darie-assistant', label: 'Darie Assistant', icon: MapIcon, path: '/dashboard/darie-assistant' },
     { id: 'content-studio', label: 'Content Studio', icon: DocumentTextIcon, path: '/dashboard/content-studio' },
-    { id: 'market-intelligence', label: 'Market Intelligence', icon: ChartBarIcon, path: '/dashboard/market-intelligence' },
+    { id: 'market-comparison-reports', label: 'Market Comparison Reports', icon: ChartBarIcon, path: '/dashboard/market-comparison-reports' },
     { id: 'property-intelligence', label: 'Property Intelligence', icon: BuildingIcon, path: '/dashboard/property-intelligence', roles: [UserRole.Owner, UserRole.Admin] },
     { id: 'crm', label: 'CRM Intelligence', icon: UsersIcon, path: '/dashboard/crm', roles: [UserRole.Owner, UserRole.Admin, UserRole.PropertyAdvisor] },
     { id: 'finance-intelligence', label: 'Finance Intelligence', icon: CashIcon, path: '/dashboard/finance-intelligence', roles: [UserRole.Owner, UserRole.Admin] },

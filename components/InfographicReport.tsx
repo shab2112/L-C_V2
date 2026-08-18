@@ -27,9 +27,48 @@ const renderText = (text: string) => {
 const InfographicReport: React.FC<{ content: string }> = ({ content }) => {
     const lines = content.split('\n').filter(line => line.trim() !== '');
     const elements: React.ReactNode[] = [];
+    let tableBuffer: string[] = [];
+
+    const flushTable = () => {
+      if (!tableBuffer.length) return;
+      const rows = tableBuffer
+        .filter(line => !/^\|\s*-+/.test(line))
+        .map(line => line.split('|').slice(1, -1).map(cell => cell.trim()));
+      const [headers, ...bodyRows] = rows;
+      elements.push(
+        <div key={`table-${elements.length}`} className="my-3 overflow-x-auto rounded-lg border border-brand-accent">
+          <table className="w-full min-w-[720px] text-left text-xs">
+            {headers && (
+              <thead className="bg-brand-secondary text-brand-gold">
+                <tr>{headers.map((header, index) => <th key={index} className="px-3 py-2 font-bold">{renderText(header)}</th>)}</tr>
+              </thead>
+            )}
+            <tbody>
+              {bodyRows.map((row, rowIndex) => (
+                <tr key={rowIndex} className="border-t border-brand-accent text-brand-light">
+                  {row.map((cell, cellIndex) => <td key={cellIndex} className="px-3 py-2 align-top">{renderText(cell)}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      tableBuffer = [];
+    };
   
     lines.forEach((line, i) => {
       const statMatch = line.match(statRegex);
+
+      if (line.startsWith('|')) {
+        tableBuffer.push(line);
+        return;
+      }
+
+      flushTable();
+
+      if (/^-{3,}$/.test(line.trim())) {
+        return;
+      }
 
       if (line.startsWith('### ')) {
         const headerText = line.substring(4);
@@ -59,6 +98,8 @@ const InfographicReport: React.FC<{ content: string }> = ({ content }) => {
         elements.push(<h2 key={i} className="text-xl font-bold text-brand-text mt-6 mb-2 border-b border-brand-accent pb-1">{renderText(line.substring(3))}</h2>);
       } else if (line.startsWith('# ')) {
         elements.push(<h1 key={i} className="text-2xl font-bold text-brand-gold mt-4 mb-3">{renderText(line.substring(2))}</h1>);
+      } else if (line.startsWith('#### ')) {
+        elements.push(<h4 key={i} className="text-sm font-bold text-brand-gold mt-4 mb-2 uppercase tracking-wide">{renderText(line.substring(5))}</h4>);
       } else if (line.startsWith('- ')) {
         // This handles general list items that are not stats
         elements.push(<p key={i} className="text-sm my-1 pl-4">{renderText(line.substring(2))}</p>);
@@ -68,6 +109,7 @@ const InfographicReport: React.FC<{ content: string }> = ({ content }) => {
         elements.push(<p key={i} className="my-2 text-brand-light text-sm">{renderText(line)}</p>);
       }
     });
+    flushTable();
   
     return <div className="text-brand-text max-w-none">{elements}</div>;
   };

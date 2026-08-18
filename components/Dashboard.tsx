@@ -132,7 +132,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
             </button>
             <button
               type="button"
-              onClick={() => navigate('/dashboard/market-intelligence')}
+              onClick={() => navigate('/dashboard/market-comparison-reports')}
               className="text-left bg-brand-primary/70 hover:bg-brand-primary border border-brand-accent rounded-xl p-5 transition-colors group"
             >
               <div className="flex items-start gap-4">
@@ -140,7 +140,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   <ChartBarIcon className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-brand-text font-bold group-hover:text-white">Market Intelligence</h3>
+                  <h3 className="text-brand-text font-bold group-hover:text-white">Market Comparison Reports</h3>
                   <p className="text-brand-light text-sm mt-1">
                     Review market reports and data-led advisory outputs.
                   </p>

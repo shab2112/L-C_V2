@@ -72,7 +72,7 @@ export const ContactUs: React.FC<ContactUsProps> = ({ onNavigate }) => {
                 <div className="space-y-3">
                   <p className="flex items-center gap-3 text-gray-600">
                     <span className="font-semibold text-gray-900">Phone:</span>
-                    <a href="tel:+971564144401" className="hover:text-lc-gold transition-colors">+971 564144401</a>
+                    <a href="tel:+971585871869" className="hover:text-lc-gold transition-colors">+971 58 587 1869</a>
                   </p>
                   <p className="flex items-center gap-3 text-gray-600">
                     <span className="font-semibold text-gray-900">Email:</span>

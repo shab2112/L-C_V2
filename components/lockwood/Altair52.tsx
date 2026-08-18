@@ -21,7 +21,7 @@ interface Altair52Props {
 export const Altair52: React.FC<Altair52Props> = ({ onNavigate }) => {
    const handleWhatsApp = () => {
       const message = encodeURIComponent("Hi Mr. Muqthar, I am interested in the Altair 52 project in Dubai South. Please provide more details regarding availability and payment plans.");
-      window.open(`https://wa.me/971564144401?text=${message}`, '_blank');
+      window.open(`https://wa.me/971585871869?text=${message}`, '_blank');
    };
 
    // Scroll to top on mount
