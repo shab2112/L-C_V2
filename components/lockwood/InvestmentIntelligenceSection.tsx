@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowRight, BarChart3, Globe2, Shield, TrendingUp } from 'lucide-react';
 import {
   getHousingMarkets,
   getIntelligenceSettings,
   HousingMarket,
-  IntelligenceSettings,
 } from '../../lib/propertyIntelligenceStore';
+import { DataType, IndexType, PriceUnit, TimePeriod } from '../../lib/housingData';
 import { Page } from '../../lockwood-types';
+import GlobalHousingGlobe from './GlobalHousingGlobe';
 
 interface InvestmentIntelligenceSectionProps {
   onNavigate: (page: Page) => void;
@@ -37,24 +38,53 @@ const highlights = [
 
 export const InvestmentIntelligenceSection: React.FC<InvestmentIntelligenceSectionProps> = ({ onNavigate }) => {
   const [markets, setMarkets] = useState<HousingMarket[]>([]);
-  const [settings, setSettings] = useState<IntelligenceSettings>(getIntelligenceSettings());
-  const [metric, setMetric] = useState<'price' | 'growth'>('price');
+  const [investmentIntro, setInvestmentIntro] = useState(getIntelligenceSettings().investmentIntro);
+  const [housingInfoText, setHousingInfoText] = useState(getIntelligenceSettings().housingInfoText);
+  const [dataType, setDataType] = useState<DataType>('price');
+  const [priceUnit, setPriceUnit] = useState<PriceUnit>('sqft');
+  const [indexType, setIndexType] = useState<IndexType>('nominal');
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('1Y');
 
   useEffect(() => {
     const load = () => {
       setMarkets(getHousingMarkets());
-      setSettings(getIntelligenceSettings());
+      setInvestmentIntro(getIntelligenceSettings().investmentIntro);
     };
     load();
     window.addEventListener('lc-property-intelligence-updated', load);
     return () => window.removeEventListener('lc-property-intelligence-updated', load);
   }, []);
 
-  const sortedMarkets = useMemo(() => {
-    return [...markets].sort((a, b) => metric === 'price' ? b.usdPerSqft - a.usdPerSqft : b.hpi5Y - a.hpi5Y);
-  }, [markets, metric]);
+  useEffect(() => {
+    let active = true;
+    fetch('/api/admin/hp-data', { cache: 'no-store' })
+      .then(response => (response.ok ? response.json() : Promise.reject(new Error('HP metadata unavailable'))))
+      .then(data => {
+        if (!active || !data?.success || !data.data?.infoText) return;
+        setHousingInfoText(data.data.infoText);
+      })
+      .catch(() => {
+        if (active) setHousingInfoText(getIntelligenceSettings().housingInfoText);
+      });
 
-  const maxValue = Math.max(...sortedMarkets.map(market => metric === 'price' ? market.usdPerSqft : market.hpi5Y), 1);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const primaryControlClass = (isActive: boolean) =>
+    `inline-flex min-h-12 w-full items-center justify-between gap-3 border px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors ${
+      isActive
+        ? 'border-[#F5F0E6] bg-[#F5F0E6] text-[#122238]'
+        : 'border-[#B49A68]/45 bg-[#122238] text-[#F5F0E6] hover:border-[#F5F0E6]/70 hover:bg-[#162840]'
+    }`;
+
+  const optionControlClass = (isActive: boolean) =>
+    `min-h-10 border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors ${
+      isActive
+        ? 'border-[#B49A68] bg-[#B49A68] text-[#122238]'
+        : 'border-white/15 bg-black/20 text-[#F5F0E6]/75 hover:border-[#B49A68]/60 hover:text-[#F5F0E6]'
+    }`;
 
   return (
     <section className="bg-[#F5F0E6] py-24 sm:py-28">
@@ -67,7 +97,7 @@ export const InvestmentIntelligenceSection: React.FC<InvestmentIntelligenceSecti
             </h2>
             <div className="mb-8 h-px w-24 bg-[#B49A68]" />
             <p className="mb-8 text-lg leading-relaxed text-[#292B2D]/75">
-              {settings.investmentIntro}
+              {investmentIntro}
             </p>
 
             <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -95,53 +125,77 @@ export const InvestmentIntelligenceSection: React.FC<InvestmentIntelligenceSecti
           </div>
 
           <div className="border border-[#B49A68]/25 bg-[#101820] p-5 shadow-xl sm:p-6 lg:p-8">
-            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#B49A68]">Global Housing Intelligence</p>
               <h3 className="mt-2 max-w-md font-serif text-2xl font-normal leading-snug text-[#F5F0E6]">
                 Compare Dubai against global residential markets
               </h3>
               </div>
-              <div className="flex gap-2">
+            </div>
+
+            <div className="mb-5 space-y-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => setMetric('price')}
-                className={`min-h-11 px-4 py-2 text-xs font-semibold transition-colors ${metric === 'price' ? 'bg-[#F5F0E6] text-[#122238]' : 'border border-white/20 text-white/75 hover:border-white/40 hover:text-white'}`}
+                onClick={() => setDataType('price')}
+                className={primaryControlClass(dataType === 'price')}
               >
-                Price / sqft
+                <span>Housing Price</span>
+                <ArrowRight className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
-                onClick={() => setMetric('growth')}
-                className={`min-h-11 px-4 py-2 text-xs font-semibold transition-colors ${metric === 'growth' ? 'bg-[#F5F0E6] text-[#122238]' : 'border border-white/20 text-white/75 hover:border-white/40 hover:text-white'}`}
+                onClick={() => setDataType('index')}
+                className={primaryControlClass(dataType === 'index')}
               >
-                5Y growth
+                <span>Housing Price Index</span>
+                <ArrowRight className="h-3.5 w-3.5" />
               </button>
               </div>
+
+              {dataType === 'price' && (
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setPriceUnit('sqm')} className={optionControlClass(priceUnit === 'sqm')}>
+                    Price per sqm
+                  </button>
+                  <button type="button" onClick={() => setPriceUnit('sqft')} className={optionControlClass(priceUnit === 'sqft')}>
+                    Price per sqft
+                  </button>
+                </div>
+              )}
+
+              {dataType === 'index' && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setIndexType('nominal')} className={optionControlClass(indexType === 'nominal')}>
+                      Nominal
+                    </button>
+                    <button type="button" onClick={() => setIndexType('inflAdj')} className={optionControlClass(indexType === 'inflAdj')}>
+                      Inflation Adjusted
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(['1Y', '5Y', '10Y'] as TimePeriod[]).map(period => (
+                      <button key={period} type="button" onClick={() => setTimePeriod(period)} className={optionControlClass(timePeriod === period)}>
+                        {period}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="space-y-4">
-              {sortedMarkets.map(market => {
-                const value = metric === 'price' ? market.usdPerSqft : market.hpi5Y;
-                return (
-                  <div key={`${market.city}-${market.country}`}>
-                    <div className="mb-2 flex justify-between gap-4 text-xs text-[#F5F0E6]/80">
-                      <span>{market.city}, {market.country}</span>
-                      <span className="font-semibold text-[#F5F0E6]">{metric === 'price' ? `$${market.usdPerSqft.toLocaleString()}` : `${market.hpi5Y}%`}</span>
-                    </div>
-                    <div className="h-2.5 bg-white/10">
-                      <div
-                        className="h-full bg-[#B49A68]"
-                        style={{ width: `${Math.max(6, (value / maxValue) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <GlobalHousingGlobe
+              fallbackMarkets={markets}
+              dataType={dataType}
+              priceUnit={priceUnit}
+              indexType={indexType}
+              timePeriod={timePeriod}
+            />
 
             <div className="mt-5 border border-[#B49A68]/25 bg-black/20 p-3 text-xs leading-relaxed text-[#F5F0E6]/70">
-              {settings.housingInfoText}
+              {housingInfoText}
             </div>
           </div>
         </div>

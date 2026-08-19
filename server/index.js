@@ -7,6 +7,16 @@ import * as XLSX from 'xlsx';
 
 const RESEND_URL = 'https://api.resend.com/emails';
 const HOUSE_PRICE_DATA_URL = process.env.HOUSE_PRICE_DATA_URL || 'https://diuorqykbykouqnlxcxe.supabase.co/storage/v1/object/public/house_price/hp_data.xlsx';
+const HP_BUCKET = process.env.HOUSE_PRICE_BUCKET || 'house_price';
+const HP_FILE_PATH = process.env.HOUSE_PRICE_FILE_PATH || 'hp_data.xlsx';
+const DEFAULT_HP_META = {
+  periodLabel: 'Q1-Q2 2026',
+  description: 'city-level residential apartment data. Values are market averages for comparison only.',
+  fileName: HP_FILE_PATH,
+  fileUrl: HOUSE_PRICE_DATA_URL,
+  fileUpdatedAt: null,
+  updatedAt: new Date(0).toISOString(),
+};
 
 const OFFICIAL_REAL_ESTATE_SOURCES = {
   Amsterdam: [
@@ -247,7 +257,7 @@ function readBody(req) {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
-      if (body.length > 2_000_000) req.destroy(new Error('Request body too large'));
+      if (body.length > 25_000_000) req.destroy(new Error('Request body too large'));
     });
     req.on('end', () => {
       if (!body.trim()) {
@@ -355,13 +365,74 @@ function cleanHousePriceRow(row) {
   };
 }
 
+function rowToHpMeta(row) {
+  const periodLabel = row?.period_label || DEFAULT_HP_META.periodLabel;
+  const description = row?.description || DEFAULT_HP_META.description;
+  const fileName = row?.file_name || HP_FILE_PATH;
+  const fileUrl = row?.file_url || DEFAULT_HP_META.fileUrl;
+  const fileUpdatedAt = row?.file_updated_at || DEFAULT_HP_META.fileUpdatedAt;
+  const updatedAt = row?.updated_at || DEFAULT_HP_META.updatedAt;
+
+  return {
+    periodLabel,
+    description,
+    updatedAt,
+    infoText: `${periodLabel} ${description}`,
+    fileName,
+    fileUrl,
+    fileUpdatedAt,
+  };
+}
+
+async function readHpDataMeta() {
+  if (!supabase) return { ...DEFAULT_HP_META, infoText: `${DEFAULT_HP_META.periodLabel} ${DEFAULT_HP_META.description}` };
+
+  const { data, error } = await supabase
+    .from('hp_data_settings')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === '42P01') {
+      return { ...DEFAULT_HP_META, infoText: `${DEFAULT_HP_META.periodLabel} ${DEFAULT_HP_META.description}` };
+    }
+    throw new Error(error.message);
+  }
+
+  return rowToHpMeta(data);
+}
+
+async function upsertHpDataMeta(meta) {
+  const db = assertSupabase();
+  const now = new Date().toISOString();
+  const { data, error } = await db
+    .from('hp_data_settings')
+    .upsert({
+      id: 1,
+      period_label: meta.periodLabel,
+      description: meta.description,
+      file_name: meta.fileName || HP_FILE_PATH,
+      file_url: meta.fileUrl || DEFAULT_HP_META.fileUrl,
+      file_updated_at: meta.fileUpdatedAt || null,
+      updated_at: now,
+    }, { onConflict: 'id' })
+    .select('*')
+    .single();
+
+  if (error) throw new Error(error.message);
+  return rowToHpMeta(data);
+}
+
 async function getHousePriceRows() {
   const now = Date.now();
   if (housePriceCache && now - housePriceCache.loadedAt < 15 * 60 * 1000) {
     return housePriceCache;
   }
 
-  const response = await fetch(HOUSE_PRICE_DATA_URL, {
+  const meta = await readHpDataMeta();
+  const sourceUrl = meta.fileUrl || HOUSE_PRICE_DATA_URL;
+  const response = await fetch(sourceUrl, {
     headers: {
       'User-Agent': 'lockwood-carter-market-comparison/1.0',
     },
@@ -382,10 +453,11 @@ async function getHousePriceRows() {
 
   housePriceCache = {
     loadedAt: now,
-    sourceUrl: HOUSE_PRICE_DATA_URL,
+    sourceUrl,
     sourceLastModified: response.headers.get('last-modified') || null,
     sheetName,
     rows,
+    meta,
   };
 
   return housePriceCache;
@@ -437,6 +509,113 @@ async function handleMarketComparisonReportCities(req, res) {
     sheetName: dataset.sheetName,
     loadedAt: new Date(dataset.loadedAt).toISOString(),
   });
+}
+
+async function handleHousePriceData(req, res) {
+  if (req.method !== 'GET') {
+    sendJson(res, 405, { success: false, error: 'Method not allowed' });
+    return;
+  }
+
+  const dataset = await getHousePriceRows();
+  sendJson(res, 200, {
+    success: true,
+    rows: dataset.rows,
+    sourceUrl: dataset.sourceUrl,
+    sourceLastModified: dataset.sourceLastModified,
+    sheetName: dataset.sheetName,
+    loadedAt: new Date(dataset.loadedAt).toISOString(),
+  });
+}
+
+async function handleAdminHpData(req, res) {
+  if (req.method === 'GET') {
+    const meta = await readHpDataMeta();
+    sendJson(res, 200, { success: true, data: meta });
+    return;
+  }
+
+  if (req.method === 'PUT') {
+    const body = await readBody(req);
+    const periodLabel = String(body.periodLabel || '').trim();
+    const description = String(body.description || '').trim();
+
+    if (!periodLabel || !description) {
+      sendJson(res, 400, { success: false, error: 'Period label and description are required' });
+      return;
+    }
+
+    const current = await readHpDataMeta();
+    const meta = await upsertHpDataMeta({
+      periodLabel,
+      description,
+      fileName: current.fileName || HP_FILE_PATH,
+      fileUrl: current.fileUrl || DEFAULT_HP_META.fileUrl,
+      fileUpdatedAt: current.fileUpdatedAt,
+    });
+
+    sendJson(res, 200, { success: true, data: meta });
+    return;
+  }
+
+  if (req.method === 'POST') {
+    const body = await readBody(req);
+    const fileName = String(body.fileName || '').trim();
+    const contentBase64 = String(body.contentBase64 || '').trim();
+
+    if (!fileName.toLowerCase().endsWith('.xlsx')) {
+      sendJson(res, 400, { success: false, error: 'Please upload an .xlsx file' });
+      return;
+    }
+
+    if (!contentBase64) {
+      sendJson(res, 400, { success: false, error: 'Excel file content is required' });
+      return;
+    }
+
+    const bytes = Buffer.from(contentBase64, 'base64');
+    if (!bytes.length) {
+      sendJson(res, 400, { success: false, error: 'Excel file content is empty' });
+      return;
+    }
+
+    try {
+      const workbook = XLSX.read(bytes, { type: 'buffer' });
+      if (!workbook.SheetNames.length) throw new Error('Workbook has no sheets');
+    } catch {
+      sendJson(res, 400, { success: false, error: 'Uploaded file could not be read as a valid .xlsx workbook' });
+      return;
+    }
+
+    const db = assertSupabase();
+    const { error: uploadError } = await db.storage
+      .from(HP_BUCKET)
+      .upload(HP_FILE_PATH, bytes, {
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        upsert: true,
+      });
+
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data: publicUrlData } = db.storage
+      .from(HP_BUCKET)
+      .getPublicUrl(HP_FILE_PATH);
+
+    const current = await readHpDataMeta();
+    const meta = await upsertHpDataMeta({
+      periodLabel: current.periodLabel,
+      description: current.description,
+      fileName: HP_FILE_PATH,
+      fileUrl: publicUrlData.publicUrl || current.fileUrl || DEFAULT_HP_META.fileUrl,
+      fileUpdatedAt: new Date().toISOString(),
+    });
+
+    housePriceCache = null;
+    sendJson(res, 200, { success: true, data: meta });
+    return;
+  }
+
+  sendJson(res, 405, { success: false, error: 'Method not allowed' });
 }
 
 function createAction(type, detail, actor = 'admin') {
@@ -1316,6 +1495,16 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === '/api/market-comparison-reports/cities') {
       await handleMarketComparisonReportCities(req, res);
+      return;
+    }
+
+    if (url.pathname === '/api/house-price-data') {
+      await handleHousePriceData(req, res);
+      return;
+    }
+
+    if (url.pathname === '/api/admin/hp-data') {
+      await handleAdminHpData(req, res);
       return;
     }
 
