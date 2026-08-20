@@ -27,7 +27,7 @@ export const ContactUs: React.FC<ContactUsProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="min-h-screen overflow-x-hidden bg-white">
       {/* Hero Header */}
       <section className="relative h-[40vh] flex items-center justify-center overflow-hidden bg-lc-navy">
         <div className="absolute inset-0 opacity-40">
@@ -52,7 +52,7 @@ export const ContactUs: React.FC<ContactUsProps> = ({ onNavigate }) => {
             
             {/* Contact Information Cards */}
             <div className="lg:col-span-1 space-y-6">
-              <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-lg transition-shadow">
+              <div className="min-w-0 rounded-2xl border border-gray-100 bg-gray-50 p-6 transition-shadow hover:shadow-lg sm:p-8">
                 <div className="w-12 h-12 bg-lc-navy rounded-full flex items-center justify-center text-lc-gold mb-6">
                   <MapPin size={24} />
                 </div>
@@ -64,38 +64,38 @@ export const ContactUs: React.FC<ContactUsProps> = ({ onNavigate }) => {
                 </p>
               </div>
 
-              <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-lg transition-shadow">
+              <div className="min-w-0 rounded-2xl border border-gray-100 bg-gray-50 p-6 transition-shadow hover:shadow-lg sm:p-8">
                 <div className="w-12 h-12 bg-lc-navy rounded-full flex items-center justify-center text-lc-gold mb-6">
                   <Phone size={24} />
                 </div>
                 <h3 className="text-xl font-bold text-lc-navy mb-4">Direct Contact</h3>
                 <div className="space-y-3">
-                  <p className="flex items-center gap-3 text-gray-600">
+                  <p className="flex flex-col gap-1 text-gray-600 min-[360px]:flex-row min-[360px]:items-center min-[360px]:gap-3">
                     <span className="font-semibold text-gray-900">Phone:</span>
-                    <a href="tel:+971585871869" className="hover:text-lc-gold transition-colors">+971 58 587 1869</a>
+                    <a href="tel:+971585871869" className="break-words transition-colors hover:text-lc-gold">+971 58 587 1869</a>
                   </p>
-                  <p className="flex items-center gap-3 text-gray-600">
+                  <p className="flex flex-col gap-1 text-gray-600 min-[360px]:flex-row min-[360px]:items-center min-[360px]:gap-3">
                     <span className="font-semibold text-gray-900">Email:</span>
-                    <a href="mailto:info@lockwoodandcarter.com" className="hover:text-lc-gold transition-colors">info@lockwoodandcarter.com</a>
+                    <a href="mailto:info@lockwoodandcarter.com" className="min-w-0 break-all transition-colors hover:text-lc-gold">info@lockwoodandcarter.com</a>
                   </p>
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-lg transition-shadow">
+              <div className="min-w-0 rounded-2xl border border-gray-100 bg-gray-50 p-6 transition-shadow hover:shadow-lg sm:p-8">
                 <div className="w-12 h-12 bg-lc-navy rounded-full flex items-center justify-center text-lc-gold mb-6">
                   <Clock size={24} />
                 </div>
                 <h3 className="text-xl font-bold text-lc-navy mb-4">Office Hours</h3>
                 <div className="space-y-2 text-gray-600">
-                  <div className="flex justify-between">
+                  <div className="flex flex-col gap-1 min-[360px]:flex-row min-[360px]:justify-between">
                     <span>Monday - Friday</span>
                     <span className="font-semibold text-gray-900">9:00 AM - 7:00 PM</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex flex-col gap-1 min-[360px]:flex-row min-[360px]:justify-between">
                     <span>Saturday</span>
                     <span className="font-semibold text-gray-900">9:00 AM - 5:00 PM</span>
                   </div>
-                  <div className="flex justify-between text-red-500">
+                  <div className="flex flex-col gap-1 text-red-500 min-[360px]:flex-row min-[360px]:justify-between">
                     <span>Sunday</span>
                     <span>Closed</span>
                   </div>
@@ -105,7 +105,7 @@ export const ContactUs: React.FC<ContactUsProps> = ({ onNavigate }) => {
 
             {/* Contact Form */}
             <div className="lg:col-span-2">
-              <div className="bg-white p-8 md:p-12 rounded-3xl shadow-xl border border-gray-100">
+              <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-xl sm:p-8 md:p-12">
                 <div className="mb-8">
                   <h2 className="text-3xl font-bold text-lc-navy mb-4">Send us a Message</h2>
                   <p className="text-gray-500">
@@ -205,7 +205,7 @@ export const ContactUs: React.FC<ContactUsProps> = ({ onNavigate }) => {
           className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
         />
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl shadow-2xl text-center transform translate-y-4 group-hover:translate-y-0 transition-transform">
+          <div className="mx-4 max-w-[calc(100%-2rem)] transform rounded-2xl bg-white/90 p-6 text-center shadow-2xl backdrop-blur-md transition-transform group-hover:translate-y-0">
              <div className="w-12 h-12 bg-lc-gold rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg text-white">
                 <Building size={24} />
              </div>

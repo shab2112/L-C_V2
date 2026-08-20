@@ -31,7 +31,7 @@ export const Shahrukhz: React.FC<ShahrukhzProps> = ({ onNavigate }) => {
    };
 
    return (
-      <div className="bg-white font-sans text-gray-900">
+      <div className="overflow-x-hidden bg-white font-sans text-gray-900">
          {/* Project Hero */}
          <section className="relative min-h-[85vh] flex flex-col justify-center pt-32 overflow-hidden">
             <div className="absolute inset-0">
@@ -105,7 +105,7 @@ export const Shahrukhz: React.FC<ShahrukhzProps> = ({ onNavigate }) => {
 
          {/* Intro / Collaboration */}
          <section className="py-24 bg-black text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-lc-gold/10 rounded-full blur-[120px]"></div>
+            <div className="absolute top-0 right-0 hidden h-[600px] w-[600px] rounded-full bg-lc-gold/10 blur-[120px] sm:block"></div>
             <div className="container mx-auto px-4 relative z-10">
                <div className="grid md:grid-cols-2 gap-16 items-center">
                   <div>
@@ -139,7 +139,7 @@ export const Shahrukhz: React.FC<ShahrukhzProps> = ({ onNavigate }) => {
                         alt="Shah Rukh Khan Collaboration"
                         className="rounded-2xl border border-lc-gold/20 shadow-2xl grayscale hover:grayscale-0 transition-all duration-700"
                      />
-                     <div className="absolute -bottom-6 -left-6 bg-lc-gold text-black p-6 rounded-xl max-w-xs">
+                     <div className="absolute bottom-4 left-4 max-w-[calc(100%-2rem)] rounded-xl bg-lc-gold p-4 text-black shadow-xl sm:-bottom-6 sm:-left-6 sm:max-w-xs sm:p-6">
                         <p className="font-serif italic font-bold">"The Sky is your runway & success is your destination"</p>
                      </div>
                   </div>

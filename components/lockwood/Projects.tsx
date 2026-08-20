@@ -38,7 +38,7 @@ export const Projects: React.FC<ProjectsProps> = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F0E6] pt-36 pb-24">
+    <div className="min-h-screen overflow-x-hidden bg-[#F5F0E6] pt-36 pb-24">
       <div className="container mx-auto px-4">
         <header className="mb-14 max-w-4xl">
           <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#6D2636]">All Properties</p>
@@ -69,7 +69,7 @@ export const Projects: React.FC<ProjectsProps> = () => {
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
           {visibleProperties.map(property => (
-            <article key={property.id} className="group overflow-hidden border border-[#E6DED0] bg-white">
+            <article key={property.id} className="group min-w-0 overflow-hidden border border-[#E6DED0] bg-white">
               <button type="button" onClick={() => openProperty(property)} className="block w-full text-left">
                 <div className="relative aspect-[16/10] overflow-hidden">
                   <img
@@ -96,14 +96,14 @@ export const Projects: React.FC<ProjectsProps> = () => {
                   </div>
                   <p className="mb-5 line-clamp-3 text-sm leading-relaxed text-[#292B2D]/70">{property.description}</p>
                   <div className="grid grid-cols-2 gap-3 border-y border-[#E6DED0] py-4 text-sm text-[#292B2D]/75 sm:grid-cols-4">
-                    <span className="inline-flex items-center gap-1"><Bed className="h-4 w-4" />{property.beds}</span>
-                    <span className="inline-flex items-center gap-1"><Bath className="h-4 w-4" />{property.baths}</span>
-                    <span className="inline-flex items-center gap-1"><Maximize className="h-4 w-4" />{property.area ? `${property.area} sqft` : 'Ask'}</span>
-                    <span className="inline-flex items-center gap-1"><CreditCard className="h-4 w-4" />{property.paymentPlan}</span>
+                    <span className="inline-flex min-w-0 items-center gap-1"><Bed className="h-4 w-4 flex-shrink-0" /> <span className="min-w-0 break-words">{property.beds}</span></span>
+                    <span className="inline-flex min-w-0 items-center gap-1"><Bath className="h-4 w-4 flex-shrink-0" /> <span className="min-w-0 break-words">{property.baths}</span></span>
+                    <span className="inline-flex min-w-0 items-center gap-1"><Maximize className="h-4 w-4 flex-shrink-0" /> <span className="min-w-0 break-words">{property.area ? `${property.area} sqft` : 'Ask'}</span></span>
+                    <span className="inline-flex min-w-0 items-center gap-1"><CreditCard className="h-4 w-4 flex-shrink-0" /> <span className="min-w-0 break-words">{property.paymentPlan}</span></span>
                   </div>
-                  <div className="mt-4 flex items-center justify-between text-sm text-[#292B2D]/65">
-                    <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" />{property.location}</span>
-                    <span className="inline-flex items-center gap-1"><Building2 className="h-4 w-4" />{property.propertyType || 'Property'}</span>
+                  <div className="mt-4 flex flex-col gap-2 text-sm text-[#292B2D]/65 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="inline-flex min-w-0 items-center gap-1"><MapPin className="h-4 w-4 flex-shrink-0" /> <span className="min-w-0 break-words">{property.location}</span></span>
+                    <span className="inline-flex min-w-0 items-center gap-1"><Building2 className="h-4 w-4 flex-shrink-0" /> <span className="min-w-0 break-words">{property.propertyType || 'Property'}</span></span>
                   </div>
                 </div>
               </button>

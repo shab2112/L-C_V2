@@ -26,7 +26,7 @@ export const Masaar3: React.FC<Masaar3Props> = ({ onNavigate }) => {
    };
 
    return (
-      <div className="bg-white font-sans text-gray-900">
+      <div className="overflow-x-hidden bg-white font-sans text-gray-900">
          {/* Project Hero */}
          <section className="relative min-h-[85vh] flex flex-col justify-center pt-32 overflow-hidden">
             <div className="absolute inset-0">
@@ -86,12 +86,12 @@ export const Masaar3: React.FC<Masaar3Props> = ({ onNavigate }) => {
 
          {/* Intro / Masterplan Concept */}
          <section className="py-24 bg-white relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#F4F7F5] rounded-full -translate-y-1/2 translate-x-1/2"></div>
+            <div className="absolute top-0 right-0 hidden h-64 w-64 -translate-y-1/2 translate-x-1/2 rounded-full bg-[#F4F7F5] sm:block"></div>
 
             <div className="container mx-auto px-4">
                <div className="grid md:grid-cols-2 gap-16 items-center">
                   <div className="relative">
-                     <div className="absolute -inset-4 bg-[#E3ECE6]/50 rounded-3xl transform -rotate-2"></div>
+                     <div className="absolute -inset-4 hidden rounded-3xl bg-[#E3ECE6]/50 transform -rotate-2 sm:block"></div>
                      <img
                         src="https://images.unsplash.com/photo-1613977257363-707ba9348227?q=80&w=1200&auto=format&fit=crop"
                         alt="Masaar Townhouse"
