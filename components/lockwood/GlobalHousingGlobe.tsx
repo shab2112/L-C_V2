@@ -44,8 +44,11 @@ interface LandFeature {
   };
 }
 
-const LAND_GEOJSON_URL =
-  'https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/110m/physical/ne_110m_land.json';
+const LAND_GEOJSON_URLS = [
+  '/geo/ne_110m_land.json',
+  'https://cdn.jsdelivr.net/gh/martynafford/natural-earth-geojson@master/110m/physical/ne_110m_land.json',
+  'https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/110m/physical/ne_110m_land.json',
+];
 
 const FALLBACK_LAND_POLYGONS: Array<Array<[number, number]>> = [
   [[-168, 72], [-135, 72], [-112, 58], [-95, 50], [-82, 28], [-97, 16], [-122, 24], [-142, 48], [-168, 58], [-168, 72]],
@@ -158,13 +161,26 @@ const GlobalHousingGlobe: React.FC<GlobalHousingGlobeProps> = ({
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 3500);
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
 
-    fetch(LAND_GEOJSON_URL, { signal: controller.signal })
-      .then(response => (response.ok ? response.json() : Promise.reject(new Error('Land data unavailable'))))
-      .then(data => {
+    const loadLandFeatures = async () => {
+      for (const url of LAND_GEOJSON_URLS) {
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          if (!response.ok) continue;
+          const data = await response.json();
+          const features = Array.isArray(data?.features) ? data.features : [];
+          if (features.length) return features;
+        } catch (error) {
+          if (controller.signal.aborted) throw error;
+        }
+      }
+      return [];
+    };
+
+    loadLandFeatures()
+      .then(features => {
         if (!active) return;
-        const features = Array.isArray(data?.features) ? data.features : [];
         setLandFeatures(features);
       })
       .catch(() => {
