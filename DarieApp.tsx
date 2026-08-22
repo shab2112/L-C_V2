@@ -34,16 +34,8 @@ import { MapController } from './lib/map-controller';
 import { ChatSession } from './types';
 import { chatHistoryService } from './lib/db';
 
-const GEMINI_API_KEY = process.env.API_KEY as string;
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY as string;
-
-if (typeof GEMINI_API_KEY !== 'string' || !GEMINI_API_KEY) {
-  throw new Error('Missing GEMINI_API_KEY in .env file');
-}
-
-if (typeof GOOGLE_MAPS_API_KEY !== 'string' || !GOOGLE_MAPS_API_KEY) {
-  throw new Error('Missing VITE_GOOGLE_API_KEY in .env file');
-}
+const GEMINI_LIVE_API_KEY = import.meta.env.VITE_GEMINI_LIVE_API_KEY as string | undefined;
+const GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || import.meta.env.VITE_GOOGLE_API_KEY) as string | undefined;
 
 const INITIAL_VIEW_PROPS = {
   center: {
@@ -267,7 +259,7 @@ function AppComponent({ onClose }: AppComponentProps) {
 
   return (
     <LiveAPIProvider
-      apiKey={GEMINI_API_KEY}
+      apiKey={GEMINI_LIVE_API_KEY}
       map={map}
       placesLib={placesLib}
       elevationLib={elevationLib}
@@ -314,6 +306,30 @@ interface DarieAppProps {
 }
 
 function DarieApp({ onClose }: DarieAppProps) {
+  if (!GEMINI_LIVE_API_KEY || !GOOGLE_MAPS_API_KEY) {
+    return (
+      <div className="App">
+        <div className="flex min-h-screen items-center justify-center bg-[#101820] p-6 text-white">
+          <div className="max-w-md border border-[#B49A68]/30 bg-[#122238] p-6 shadow-2xl">
+            <h2 className="mb-3 text-xl font-semibold">Map assistant unavailable</h2>
+            <p className="text-sm leading-relaxed text-white/75">
+              This feature needs browser-restricted Google Maps and Gemini Live API keys. The public DARIE chat remains available from the homepage.
+            </p>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-5 min-h-11 bg-[#B49A68] px-4 py-2 text-sm font-bold text-[#101820]"
+              >
+                Return to dashboard
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="App">
       <APIProvider
