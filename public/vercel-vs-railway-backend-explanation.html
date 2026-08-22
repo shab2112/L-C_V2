@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lockwood & Carter Backend Deployment: Vercel vs Railway</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #5f6673;
+      --line: #d8dde5;
+      --paper: #ffffff;
+      --soft: #f5f2ea;
+      --navy: #122033;
+      --gold: #b99a61;
+      --green: #156f52;
+      --red: #a43c36;
+      --blue: #295f98;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #eceff3;
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.5;
+    }
+
+    .deck {
+      max-width: 1120px;
+      margin: 0 auto;
+      background: var(--paper);
+      box-shadow: 0 18px 50px rgba(17, 24, 39, 0.12);
+    }
+
+    section {
+      min-height: 720px;
+      padding: 56px 64px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .cover {
+      background: linear-gradient(135deg, #101923 0%, #14243a 56%, #243b55 100%);
+      color: #fff;
+    }
+
+    .eyebrow {
+      color: var(--gold);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    h1,
+    h2 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 700;
+      line-height: 1.08;
+    }
+
+    h1 {
+      max-width: 840px;
+      font-size: 58px;
+    }
+
+    h2 {
+      max-width: 860px;
+      font-size: 42px;
+      color: var(--navy);
+    }
+
+    .cover h2,
+    .cover p {
+      color: #fff;
+    }
+
+    .subtitle {
+      max-width: 780px;
+      margin: 24px 0 0;
+      color: #e5e7eb;
+      font-size: 20px;
+    }
+
+    .lead {
+      max-width: 860px;
+      margin: 22px 0 0;
+      color: var(--muted);
+      font-size: 19px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+      margin-top: 34px;
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      background: #fff;
+    }
+
+    .panel.dark {
+      background: var(--navy);
+      color: #fff;
+      border-color: var(--navy);
+    }
+
+    .panel.soft {
+      background: var(--soft);
+    }
+
+    .panel h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      color: var(--navy);
+    }
+
+    .panel.dark h3,
+    .panel.dark p,
+    .panel.dark li {
+      color: #fff;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    ul {
+      margin: 12px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      margin-bottom: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--green);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge.warn {
+      background: var(--gold);
+      color: #1f2937;
+    }
+
+    .badge.risk {
+      background: var(--red);
+    }
+
+    .code {
+      margin-top: 18px;
+      padding: 18px;
+      overflow-x: auto;
+      border-radius: 8px;
+      background: #0d1420;
+      color: #e5edf6;
+      font: 14px/1.55 Consolas, "Courier New", monospace;
+      white-space: pre;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr 64px 1fr;
+      gap: 14px;
+      align-items: stretch;
+      margin-top: 34px;
+    }
+
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gold);
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .decision {
+      margin-top: 34px;
+      padding: 24px;
+      border-left: 6px solid var(--gold);
+      background: var(--soft);
+    }
+
+    .decision strong {
+      color: var(--navy);
+    }
+
+    .table {
+      width: 100%;
+      margin-top: 30px;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+
+    .table th,
+    .table td {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .table th {
+      color: #fff;
+      background: var(--navy);
+    }
+
+    .table td:first-child {
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .footer-note {
+      margin-top: 36px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .deck {
+        box-shadow: none;
+      }
+
+      section {
+        min-height: 100vh;
+        page-break-after: always;
+      }
+    }
+
+    @media (max-width: 760px) {
+      section {
+        min-height: auto;
+        padding: 36px 22px;
+      }
+
+      h1 {
+        font-size: 38px;
+      }
+
+      h2 {
+        font-size: 30px;
+      }
+
+      .lead,
+      .subtitle {
+        font-size: 17px;
+      }
+
+      .grid,
+      .grid.three,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        transform: rotate(90deg);
+        min-height: 32px;
+      }
+
+      .table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck">
+    <section class="cover">
+      <div class="eyebrow">Lockwood & Carter deployment note</div>
+      <h1>Vercel vs Railway for the Current Backend</h1>
+      <p class="subtitle">Why the current Vercel setup can continue to work, what the real risk is, and when Railway becomes the cleaner backend option.</p>
+    </section>
+
+    <section>
+      <div class="eyebrow">Executive answer</div>
+      <h2>Vercel is fine for the current web app</h2>
+      <p class="lead">The deployed site can continue running on Vercel without a meaningful performance problem at the current stage. The backend pieces that are needed in production have been added as Vercel serverless API routes.</p>
+      <div class="grid">
+        <div class="panel">
+          <span class="badge">Current state</span>
+          <h3>What is running now</h3>
+          <ul>
+            <li>React/Vite frontend is deployed on Vercel.</li>
+            <li>Production API calls are handled by files inside the <strong>/api</strong> folder.</li>
+            <li>The main Express backend still exists in <strong>server/index.js</strong>, but it is not the primary production server on Vercel.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <span class="badge warn">Key point</span>
+          <h3>This is not mainly a performance issue</h3>
+          <p>The concern is backend consolidation and long-term security maintenance. Vercel can serve these routes well enough now. Railway becomes useful when one central Node backend is better than several serverless copies.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Current backend shape</div>
+      <h2>The project currently has two backend surfaces</h2>
+      <div class="flow">
+        <div class="panel dark">
+          <h3>Vercel production API</h3>
+          <p>These routes are active in the Vercel deployment:</p>
+          <ul>
+            <li>/api/darie-chat</li>
+            <li>/api/house-price-data</li>
+            <li>/api/admin/hp-data</li>
+            <li>/api/_hp-data-utils.js</li>
+          </ul>
+        </div>
+        <div class="arrow">+</div>
+        <div class="panel soft">
+          <h3>Full local Node backend</h3>
+          <p>The project also has <strong>server/index.js</strong>, which contains broader backend logic for routes such as leads, enquiries, content studio, email, WhatsApp, market comparison, and house price data.</p>
+        </div>
+      </div>
+      <div class="decision">
+        <p><strong>Meaning:</strong> the app is not broken because of this. It simply means some backend logic exists in more than one place.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Concrete project example</div>
+      <h2>House Price Data is the best example</h2>
+      <p class="lead">The deployed property intelligence page depends on house price APIs. To make it work on Vercel, similar logic exists in both the Express server and Vercel API files.</p>
+      <div class="grid">
+        <div class="panel">
+          <h3>Vercel version</h3>
+          <div class="code">api/house-price-data.js
+api/admin/hp-data.js
+api/_hp-data-utils.js</div>
+          <p>These are the routes Vercel can run directly as serverless functions.</p>
+        </div>
+        <div class="panel">
+          <h3>Express version</h3>
+          <div class="code">server/index.js</div>
+          <p>This is the broader Node backend that contains similar route logic plus additional server features.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">The actual risk</div>
+      <h2>A fix can be made in one backend file but missed in another</h2>
+      <p class="lead">This is the long-term problem with duplicated backend logic. It is not that the current site cannot perform. It is that production behavior may depend on a different file than the one being edited.</p>
+      <div class="grid">
+        <div class="panel">
+          <span class="badge risk">Risk example</span>
+          <h3>Admin upload security</h3>
+          <p>If we add admin role verification inside <strong>server/index.js</strong> but forget to add the same check inside <strong>api/admin/hp-data.js</strong>, the deployed Vercel route may remain less secure.</p>
+        </div>
+        <div class="panel">
+          <span class="badge risk">Risk example</span>
+          <h3>Data parsing or cache behavior</h3>
+          <p>If the Excel parsing logic is improved in <strong>api/_hp-data-utils.js</strong> but not in <strong>server/index.js</strong>, local testing and production behavior can slowly drift apart.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Performance view</div>
+      <h2>Why Vercel can still perform at the same practical level now</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Vercel current setup</th>
+            <th>Performance impact today</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Frontend pages</td>
+            <td>Static Vite build served from Vercel.</td>
+            <td>Very suitable. This is one of Vercel's strongest use cases.</td>
+          </tr>
+          <tr>
+            <td>DARIE chat</td>
+            <td>Serverless route forwards requests to NVIDIA API.</td>
+            <td>Fine for normal usage. Most latency comes from the AI provider, not from Vercel itself.</td>
+          </tr>
+          <tr>
+            <td>Property intelligence data</td>
+            <td>Serverless route fetches and parses the house price spreadsheet.</td>
+            <td>Acceptable at current traffic. Can be improved later with stronger caching.</td>
+          </tr>
+          <tr>
+            <td>Admin upload/update</td>
+            <td>Serverless route writes to Supabase storage/settings.</td>
+            <td>Works for occasional admin usage. Security is the bigger concern than speed.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="decision">
+        <p><strong>Conclusion:</strong> for the current launch, Vercel is not a performance blocker. The main reason to change later is architectural cleanliness and security consistency.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">What Railway changes</div>
+      <h2>Railway would make the backend one central service</h2>
+      <div class="flow">
+        <div class="panel">
+          <h3>Current Vercel-only backend</h3>
+          <div class="code">Vercel frontend
+  -> /api/darie-chat
+  -> /api/house-price-data
+  -> /api/admin/hp-data
+
+server/index.js still exists separately</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="panel dark">
+          <h3>With Railway backend</h3>
+          <div class="code">Vercel frontend
+  -> api.lockwoodandcarter.com
+     -> server/index.js
+        -> all backend routes in one place</div>
+        </div>
+      </div>
+      <p class="lead">Railway would run the full Node server continuously. Vercel would only serve the frontend and call Railway for backend work.</p>
+    </section>
+
+    <section>
+      <div class="eyebrow">What gets corrected</div>
+      <h2>The duplication problem disappears</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Concern</th>
+            <th>Current Vercel API folder</th>
+            <th>Railway backend</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Security fixes</td>
+            <td>Must ensure both <strong>/api</strong> and <strong>server/index.js</strong> are updated when logic overlaps.</td>
+            <td>Fix once in <strong>server/index.js</strong>. Production uses that same backend.</td>
+          </tr>
+          <tr>
+            <td>Private API keys</td>
+            <td>Can be kept server-side in Vercel functions, but spread across separate route files.</td>
+            <td>Centralized in one backend environment.</td>
+          </tr>
+          <tr>
+            <td>API growth</td>
+            <td>Each new route may need a separate Vercel handler.</td>
+            <td>New routes are added to the same Node server.</td>
+          </tr>
+          <tr>
+            <td>Testing</td>
+            <td>Need to remember which backend surface production uses.</td>
+            <td>Local backend and production backend can match more closely.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="eyebrow">Recommended decision</div>
+      <h2>Keep Vercel now, move backend later when it becomes operationally heavier</h2>
+      <div class="grid">
+        <div class="panel">
+          <span class="badge">Use Vercel now</span>
+          <h3>Good current fit</h3>
+          <ul>
+            <li>The site is primarily a frontend website.</li>
+            <li>The current serverless routes can support the active features.</li>
+            <li>Performance should be fine for the current stage.</li>
+            <li>No urgent migration is needed.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <span class="badge warn">Move later</span>
+          <h3>Railway trigger point</h3>
+          <ul>
+            <li>Admin tools become business critical.</li>
+            <li>More AI/content workflows go live.</li>
+            <li>Email, WhatsApp, leads, enquiries, and uploads need one secure backend.</li>
+            <li>Maintaining duplicate API logic becomes slow or risky.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="decision">
+        <p><strong>Final answer:</strong> Vercel can continue running the project without immediate performance issues. Railway is recommended later for backend consolidation, cleaner security, and easier long-term maintenance.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Target future architecture</div>
+      <h2>The clean long-term structure</h2>
+      <div class="grid three">
+        <div class="panel dark">
+          <h3>Vercel</h3>
+          <p>Hosts the public React/Vite frontend at <strong>www.lockwoodandcarter.com</strong>.</p>
+        </div>
+        <div class="panel">
+          <h3>Railway</h3>
+          <p>Runs the Node backend at <strong>api.lockwoodandcarter.com</strong>, including admin routes, AI providers, email, WhatsApp, leads, and data APIs.</p>
+        </div>
+        <div class="panel soft">
+          <h3>Supabase</h3>
+          <p>Continues handling database, auth, and storage, accessed securely from the backend.</p>
+        </div>
+      </div>
+      <p class="footer-note">Prepared for Lockwood & Carter. This document reflects the current project structure with Vercel API routes and the existing Node backend file.</p>
+    </section>
+  </main>
+</body>
+</html>
