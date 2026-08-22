@@ -1120,7 +1120,7 @@ async function handleEnquiries(req, res) {
 
 function postNvidia(payload) {
   const apiKey = process.env.NVIDIA_API_KEY || process.env.VITE_NVIDIA_API_KEY;
-  const model = process.env.NVIDIA_MODEL || process.env.VITE_NVIDIA_MODEL || 'z-ai/glm-5.2';
+  const model = payload.model || process.env.NVIDIA_MODEL || process.env.VITE_NVIDIA_MODEL || 'z-ai/glm-5.2';
   const baseUrl = (process.env.NVIDIA_BASE_URL || process.env.VITE_NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1').replace(/\/$/, '');
   const allowInsecureTls = (process.env.NVIDIA_ALLOW_INSECURE_TLS || 'true').toLowerCase() !== 'false';
 
@@ -1159,7 +1159,7 @@ function postNvidia(payload) {
       });
     });
     request.on('error', reject);
-    request.setTimeout(45_000, () => request.destroy(new Error('NVIDIA request timed out')));
+    request.setTimeout(120_000, () => request.destroy(new Error('NVIDIA request timed out')));
     request.write(JSON.stringify({
       model,
       messages: asArray(payload.messages),
@@ -1170,6 +1170,305 @@ function postNvidia(payload) {
     }));
     request.end();
   });
+}
+
+function extractNvidiaImage(parsed) {
+  const candidates = [
+    parsed?.image,
+    parsed?.images?.[0],
+    parsed?.data?.[0]?.b64_json,
+    parsed?.data?.[0]?.url,
+    parsed?.artifacts?.[0]?.base64,
+    parsed?.artifacts?.[0]?.url,
+    parsed?.output?.[0]?.b64_json,
+    parsed?.output?.[0]?.url,
+  ].filter(Boolean);
+
+  const value = candidates.find(item => typeof item === 'string');
+  if (!value) return null;
+  if (value.startsWith('data:image/') || value.startsWith('http://') || value.startsWith('https://')) return value;
+  return `data:image/png;base64,${value}`;
+}
+
+function extractImageFromProviderResponse(parsed) {
+  const candidates = [
+    parsed?.image,
+    parsed?.url,
+    parsed?.image_url,
+    parsed?.images?.[0],
+    parsed?.data?.[0]?.b64_json,
+    parsed?.data?.[0]?.url,
+    parsed?.artifacts?.[0]?.base64,
+    parsed?.artifacts?.[0]?.url,
+    parsed?.output?.[0]?.b64_json,
+    parsed?.output?.[0]?.url,
+  ].filter(Boolean);
+
+  const value = candidates.find(item => typeof item === 'string');
+  if (!value) return null;
+  if (value.startsWith('data:image/') || value.startsWith('http://') || value.startsWith('https://')) return value;
+  return `data:image/png;base64,${value}`;
+}
+
+function stripDataUrl(value) {
+  return String(value || '').replace(/^data:[^;]+;base64,/, '');
+}
+
+async function imageInputToDataUrl(image) {
+  if (image.startsWith('data:image/')) return image;
+  if (!/^https?:\/\//i.test(image)) return image;
+
+  const response = await fetch(image);
+  if (!response.ok) {
+    throw new Error(`Unable to fetch source image: ${response.status}`);
+  }
+
+  const contentType = response.headers.get('content-type') || 'image/jpeg';
+  if (!contentType.startsWith('image/')) {
+    throw new Error(`Source URL is not an image (${contentType}).`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString('base64');
+  return `data:${contentType};base64,${base64}`;
+}
+
+async function fetchImageProviderJsonOrImage(url, headers, payload, timeoutMs = 120_000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    if (!response.ok) {
+      throw new Error(`${response.status} ${buffer.toString('utf8').slice(0, 500)}`);
+    }
+
+    if (contentType.startsWith('image/')) {
+      return {
+        imageUrl: `data:${contentType};base64,${buffer.toString('base64')}`,
+        raw: null,
+      };
+    }
+
+    const text = buffer.toString('utf8');
+    let parsed = {};
+    try {
+      parsed = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(`Provider returned non-image, non-JSON response: ${text.slice(0, 300)}`);
+    }
+
+    const imageUrl = extractImageFromProviderResponse(parsed);
+    if (!imageUrl) {
+      throw new Error(`Provider response did not include an image output: ${text.slice(0, 300)}`);
+    }
+
+    return { imageUrl, raw: parsed };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function postHuggingFaceImageEdit({ image, prompt }) {
+  const token = process.env.HF_TOKEN || process.env.HUGGINGFACE_API_KEY || process.env.HUGGING_FACE_API_KEY;
+  const model = process.env.HF_IMAGE_MODEL || 'black-forest-labs/FLUX.2-klein-base-9B';
+
+  if (!token) throw new Error('Hugging Face token is not configured. Add HF_TOKEN to .env.');
+
+  const imagePayload = await imageInputToDataUrl(image);
+  const payload = {
+    inputs: stripDataUrl(imagePayload),
+    parameters: {
+      prompt,
+      guidance_scale: Number(process.env.HF_IMAGE_GUIDANCE_SCALE || 3.5),
+      num_inference_steps: Number(process.env.HF_IMAGE_STEPS || 28),
+      negative_prompt: 'text, logos, watermarks, badges, signage, people, vehicles, unrealistic objects, distorted architecture, low quality, blurry',
+      target_size: {
+        width: 1024,
+        height: 1024,
+      },
+    },
+  };
+
+  const encodedModel = model.split('/').map(encodeURIComponent).join('/');
+  const endpoints = [
+    process.env.HF_IMAGE_ENDPOINT,
+    `https://router.huggingface.co/fal-ai/models/${encodedModel}`,
+    `https://router.huggingface.co/hf-inference/models/${encodedModel}`,
+    `https://api-inference.huggingface.co/models/${encodedModel}`,
+  ].filter(Boolean);
+
+  const errors = [];
+  for (const endpoint of endpoints) {
+    try {
+      const result = await fetchImageProviderJsonOrImage(endpoint, {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      }, payload);
+
+      return {
+        ...result,
+        endpoint,
+        model,
+      };
+    } catch (error) {
+      errors.push(`${endpoint}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  throw new Error(`Hugging Face image request failed. ${errors.join(' | ')}`);
+}
+
+async function postNvidiaImageEdit({ image, prompt, aspectRatio = '1:1' }) {
+  const apiKey = process.env.NVIDIA_API_KEY || process.env.VITE_NVIDIA_API_KEY;
+  const endpoint = process.env.NVIDIA_IMAGE_ENDPOINT || 'https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.2-klein-4b';
+  const model = process.env.NVIDIA_IMAGE_MODEL || 'black-forest-labs/flux.2-klein-4b';
+
+  if (!apiKey) throw new Error('NVIDIA API key is not configured');
+  const imagePayload = await imageInputToDataUrl(image);
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      prompt,
+      image: imagePayload,
+      aspect_ratio: aspectRatio,
+      width: 1024,
+      height: 1024,
+      samples: 1,
+      steps: 30,
+      cfg_scale: 3.5,
+    }),
+  });
+
+  const responseText = await response.text();
+  let parsed = {};
+  try {
+    parsed = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    parsed = { error: responseText };
+  }
+
+  if (!response.ok) {
+    throw new Error(`NVIDIA image request failed: ${response.status} ${responseText.slice(0, 500)}`);
+  }
+
+  const imageUrl = extractNvidiaImage(parsed);
+  if (!imageUrl) {
+    throw new Error('NVIDIA image response did not include an image output.');
+  }
+
+  return {
+    imageUrl,
+    raw: parsed,
+    endpoint,
+    model,
+  };
+}
+
+function buildContentStudioImagePrompt(input) {
+  const projectName = String(input.projectName || 'the selected property').trim();
+  const developer = String(input.developer || '').trim();
+  const keywords = String(input.keywords || '').trim();
+  const templateName = String(input.templateName || 'Lockwood & Carter brand template').trim();
+
+  return [
+    `Enhance this real estate project image for a premium Lockwood & Carter social media campaign.`,
+    `Project: ${projectName}.`,
+    developer ? `Developer: ${developer}.` : '',
+    keywords ? `Creative focus: ${keywords}.` : '',
+    `The final image will sit under the "${templateName}" brand layout, so keep the scene clean with usable negative space.`,
+    'Keep the architecture, property type, layout, skyline, and materials accurate.',
+    'Improve lighting, contrast, sharpness, colour balance, and editorial luxury feel.',
+    'Do not add any text, logos, badges, watermarks, people, vehicles, signage, flags, impossible views, or unrealistic objects.',
+    'Do not alter the building design or misrepresent the development.',
+    'Output a clean square background image suitable for a deterministic branded overlay.',
+  ].filter(Boolean).join('\n');
+}
+
+async function handleContentStudioEnhanceImage(req, res) {
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { success: false, error: 'Method not allowed' });
+    return;
+  }
+
+  const body = await readBody(req);
+  const image = typeof body.image === 'string' ? body.image.trim() : '';
+  const keywords = typeof body.keywords === 'string' ? body.keywords.trim() : '';
+
+  if (!image) {
+    sendJson(res, 400, { success: false, error: 'Image is required.' });
+    return;
+  }
+
+  if (!keywords) {
+    sendJson(res, 400, { success: false, error: 'Keywords are required for image enhancement.' });
+    return;
+  }
+
+  const prompt = buildContentStudioImagePrompt(body);
+
+  try {
+    const providerPreference = (process.env.CONTENT_STUDIO_IMAGE_PROVIDER || 'huggingface').toLowerCase();
+    let result;
+    let provider = 'huggingface';
+
+    if (providerPreference === 'nvidia') {
+      provider = 'nvidia';
+      result = await postNvidiaImageEdit({
+        image,
+        prompt,
+        aspectRatio: body.aspectRatio || '1:1',
+      });
+    } else {
+      try {
+        result = await postHuggingFaceImageEdit({ image, prompt });
+      } catch (huggingFaceError) {
+        if (providerPreference === 'huggingface-only') throw huggingFaceError;
+        console.warn('[content-studio] Hugging Face image enhancement failed, falling back to NVIDIA:', huggingFaceError instanceof Error ? huggingFaceError.message : huggingFaceError);
+        provider = 'nvidia';
+        result = await postNvidiaImageEdit({
+          image,
+          prompt,
+          aspectRatio: body.aspectRatio || '1:1',
+        });
+      }
+    }
+
+    sendJson(res, 200, {
+      success: true,
+      imageUrl: result.imageUrl,
+      prompt,
+      provider,
+      model: result.model,
+      endpoint: result.endpoint,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Image enhancement failed.';
+    console.warn('[content-studio] Image enhancement failed:', message);
+    sendJson(res, 502, {
+      success: false,
+      error: message,
+      fallbackImageUrl: image,
+      fallbackReason: message.includes('predefined') || message.includes('example_id')
+        ? 'The NVIDIA hosted preview endpoint may not accept arbitrary uploaded images. The original image can still be used for template rendering.'
+        : 'The original image can still be used for template rendering.',
+    });
+  }
 }
 
 async function handleDarieChat(req, res) {
@@ -1510,6 +1809,11 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === '/api/market-comparison-reports') {
       await handleMarketComparisonReports(req, res);
+      return;
+    }
+
+    if (url.pathname === '/api/content-studio/enhance-image') {
+      await handleContentStudioEnhanceImage(req, res);
       return;
     }
 

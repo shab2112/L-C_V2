@@ -414,6 +414,13 @@ VITE_NVIDIA_API_KEY=your-nvidia-api-key
 VITE_NVIDIA_MODEL=z-ai/glm-5.2
 VITE_NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
 NVIDIA_API_KEY=your-nvidia-api-key
+NVIDIA_IMAGE_MODEL=black-forest-labs/flux.2-klein-4b
+NVIDIA_IMAGE_ENDPOINT=https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.2-klein-4b
+CONTENT_STUDIO_IMAGE_PROVIDER=huggingface
+HF_TOKEN=your-hugging-face-token-with-inference-provider-access
+HF_IMAGE_MODEL=black-forest-labs/FLUX.2-klein-base-9B
+# Optional when you want to force a specific HF provider/endpoint:
+# HF_IMAGE_ENDPOINT=https://router.huggingface.co/fal-ai/models/black-forest-labs/FLUX.2-klein-base-9B
 
 # Node API
 VITE_API_BASE_URL=http://127.0.0.1:3001

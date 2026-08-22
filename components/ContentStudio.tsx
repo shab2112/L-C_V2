@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DriveProject, User } from '../types';
-import { getDriveProjects } from '../services/googleDriveService';
+import { getContentStudioProjects } from '../services/contentProjectService';
 import ContentPlanner from './ContentPlanner';
 import { DocumentTextIcon } from './icons/DocumentTextIcon';
 
@@ -17,22 +17,41 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ currentUser }) => {
   const [viewMode, setViewMode] = useState<'FourWeek' | 'Monthly'>('FourWeek');
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  const fourWeekStartDate = new Date();
+  fourWeekStartDate.setHours(0, 0, 0, 0);
+  const fourWeekEndDate = new Date(fourWeekStartDate);
+  fourWeekEndDate.setDate(fourWeekStartDate.getDate() + 27);
+  const fourWeekDateLabel = `${fourWeekStartDate.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+  })} - ${fourWeekEndDate.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })}`;
+
   useEffect(() => {
     const fetchProjects = async () => {
       try {
         setIsLoading(true);
-        const fetchedProjects = await getDriveProjects();
+        const fetchedProjects = await getContentStudioProjects();
         setProjects(fetchedProjects);
-        if (fetchedProjects.length > 0) {
-          setSelectedProjectId(fetchedProjects[0].id);
-        }
+        setSelectedProjectId(currentProjectId => {
+          if (!fetchedProjects.length) return null;
+          return fetchedProjects.some(project => project.id === currentProjectId)
+            ? currentProjectId
+            : fetchedProjects[0].id;
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load projects.');
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchProjects();
+    window.addEventListener('lc-property-intelligence-updated', fetchProjects);
+    return () => window.removeEventListener('lc-property-intelligence-updated', fetchProjects);
   }, []);
   
   const handlePrevMonth = () => {
@@ -97,6 +116,12 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ currentUser }) => {
                     <button onClick={handleNextMonth} className="p-2 rounded-md hover:bg-brand-primary text-brand-light">Next &gt;</button>
                 </div>
             )}
+            {viewMode === 'FourWeek' && (
+                <div className="text-brand-text">
+                    <span className="text-xs uppercase tracking-wider text-brand-light">Showing</span>
+                    <span className="ml-2 font-bold text-lg">{fourWeekDateLabel}</span>
+                </div>
+            )}
         </div>
         {selectedProjectId ? (
           <ContentPlanner 
@@ -114,7 +139,7 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ currentUser }) => {
                 <p>Loading project data...</p>
               </div>
             ) : (
-              <p>No projects found. Please add projects to your Google Drive.</p>
+              <p>No Property Intelligence projects found. Add a project in Property Intelligence first.</p>
             )}
           </div>
         )}

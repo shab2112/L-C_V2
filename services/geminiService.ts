@@ -659,32 +659,116 @@ export const generatePostCopy = async (
   platform: string,
   assetName?: string
 ): Promise<string> => {
+  const getFact = (label: string) => {
+    const match = factsheet.match(new RegExp(`${label}:\\s*([^\\n]+)`, 'i'));
+    return match?.[1]?.trim() || '';
+  };
+
+  const fallbackCaption = () => {
+    const project = getFact('Project') || 'this selected property';
+    const developer = getFact('Developer');
+    const location = getFact('Location');
+    const propertyType = getFact('Property Type');
+    const price = getFact('Starting Price');
+    const paymentPlan = getFact('Payment Plan');
+    const completion = getFact('Completion / Handover');
+    const amenities = getFact('Amenities');
+
+    return [
+      `${project}${developer ? ` by ${developer}` : ''}${location ? ` in ${location}` : ''}.`,
+      propertyType || amenities
+        ? [propertyType, amenities].filter(Boolean).join(' | ')
+        : '',
+      [price && price !== 'Ask advisor' ? `Starting from ${price.replace(/^AED\s*/i, 'AED ')}` : '', paymentPlan ? `Payment plan: ${paymentPlan}` : '', completion ? `Handover: ${completion}` : '']
+        .filter(Boolean)
+        .join(' | '),
+      keywords ? `Focus: ${keywords}.` : '',
+      `For a considered view on suitability, pricing and availability, speak with Lockwood & Carter.`,
+    ].filter(Boolean).join('\n\n');
+  };
+
   try {
     const prompt = `
-${masterPrompt}
+Create one polished ${platform} caption for a Lockwood & Carter real estate social post.
 
----
-CONTEXT:
-Factsheet: ${factsheet}
-User Keywords: ${keywords}
-Target Platform: ${platform}
-${assetName ? `Asset Name: ${assetName}` : ''}
----
+Brand voice:
+- Premium, measured, advisory, British English.
+- Clear and conversion-aware without hype.
+- Do not invent availability, exclusivity, prices, payment plans, or dates beyond the factsheet.
+- End with a soft enquiry call-to-action.
 
-Generate the post copy now.
+Project facts:
+${factsheet}
+
+Creative focus:
+${keywords}
+
+${assetName ? `Selected visual asset: ${assetName}` : ''}
+
+Return only the caption text. Keep it concise and ready to edit.
     `;
 
-    return await callGeminiAPI(prompt, 2048);
+    const response = await fetch('/api/darie-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'openai/gpt-oss-20b',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a senior social media copywriter for Lockwood & Carter Real Estate.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        max_tokens: 700,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.success === false) {
+      throw new Error(data.error || `Copy generation failed with status ${response.status}`);
+    }
+
+    return data.text || fallbackCaption();
   } catch (error) {
     console.error("Error generating post copy:", error);
-    throw new Error("Failed to generate post copy");
+    return fallbackCaption();
   }
 };
 
-// Enhance image (stub - returns success message)
-export const enhanceImage = async (imageUrl: string): Promise<string> => {
-  console.log("Image enhancement requested for:", imageUrl);
-  return imageUrl;
+export const enhanceImage = async (
+  imageUrl: string,
+  keywords: string,
+  context?: {
+    projectName?: string;
+    developer?: string;
+    templateName?: string;
+  }
+): Promise<string> => {
+  const response = await fetch('/api/content-studio/enhance-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      image: imageUrl,
+      keywords,
+      projectName: context?.projectName,
+      developer: context?.developer,
+      templateName: context?.templateName,
+      aspectRatio: '1:1',
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || !data.success) {
+    const details = [data.fallbackReason, data.error].filter(Boolean).join(' ');
+    throw new Error(details || 'Failed to enhance image.');
+  }
+
+  return data.imageUrl;
 };
 
 // Generate video with HeyGen (stub - returns placeholder)

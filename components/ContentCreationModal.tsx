@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ContentPost, DriveProject, PostStatus, SocialPlatform, User, PostType, DriveAsset } from '../types';
 import { createContentPost, updateContentPost } from '../services/apiService';
 import { generatePostCopy, enhanceImage, generateVideoWithHeyGen } from '../services/geminiService';
@@ -8,7 +8,7 @@ import { ImageIcon } from './icons/ImageIcon';
 import { VideoIcon } from './icons/VideoIcon';
 import BrandOverlayPreview from './BrandOverlayPreview';
 import { UploadIcon } from './icons/UploadIcon';
-import { brandingConfig } from '../data/branding';
+import { BrandTemplateId, brandingConfig } from '../data/branding';
 import { FacebookIcon } from './icons/FacebookIcon';
 import { LinkedInIcon } from './icons/LinkedInIcon';
 import { InstagramIcon } from './icons/InstagramIcon';
@@ -49,14 +49,15 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
   const [scheduledDate, setScheduledDate] = useState('');
   const [selectedAsset, setSelectedAsset] = useState<DriveAsset | null>(null);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<BrandTemplateId>('residence');
+  const [ctaUrl, setCtaUrl] = useState('');
   
   const [keywords, setKeywords] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
+  const [uploadError, setUploadError] = useState('');
 
   const [heygenApiKey, setHeygenApiKey] = useState('');
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetState = () => {
     setStep('POST_TYPE_SELECTION');
@@ -68,6 +69,9 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
     setIsGenerating(false);
     setGenerationStatus('');
     setGeneratedVideoUrl(null);
+    setSelectedTemplateId('residence');
+    setCtaUrl(project.routePath || `/projects/${project.id}`);
+    setUploadError('');
 
     const initialDate = post ? new Date(post.scheduledDate) : new Date(selectedDate);
     initialDate.setHours(10,0);
@@ -78,6 +82,10 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
         setPostType(post.postType);
         setPlatform(post.platform);
         setPostText(post.postText);
+        setCtaUrl(post.ctaUrl || project.routePath || `/projects/${project.id}`);
+        if (post.brandTemplateId && brandingConfig.templates.some(template => template.id === post.brandTemplateId)) {
+            setSelectedTemplateId(post.brandTemplateId as BrandTemplateId);
+        }
         const assetUrl = post.imageUrl || post.videoUrl;
         const existingAsset = project.assets.find(a => a.url === assetUrl);
         if (existingAsset) {
@@ -97,37 +105,66 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUrl = reader.result as string;
-        const newAsset: DriveAsset = {
-            id: `upload-${Date.now()}`,
-            name: file.name,
-            url: dataUrl,
-            type: postType === PostType.Image ? 'image' : 'video'
-        };
-        setSelectedAsset(newAsset);
-        setStep('CONTENT_GENERATION');
-      };
-      reader.readAsDataURL(file);
+    setUploadError('');
+
+    if (!file) return;
+
+    const expectedType = postType === PostType.Image ? 'image/' : 'video/';
+    if (!file.type.startsWith(expectedType)) {
+      setUploadError(`Please choose a ${postType === PostType.Image ? 'valid image' : 'valid video'} file.`);
+      event.target.value = '';
+      return;
     }
+
+    const maxFileSize = postType === PostType.Image ? 12 * 1024 * 1024 : 80 * 1024 * 1024;
+    if (file.size > maxFileSize) {
+      setUploadError(`File is too large. Maximum ${postType === PostType.Image ? 'image' : 'video'} size is ${Math.round(maxFileSize / 1024 / 1024)}MB.`);
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        setUploadError('Could not read the selected file.');
+        return;
+      };
+
+      const newAsset: DriveAsset = {
+        id: `upload-${Date.now()}`,
+        name: file.name,
+        url: reader.result,
+        type: postType === PostType.Image ? 'image' : 'video'
+      };
+      setSelectedAsset(newAsset);
+      setStep('CONTENT_GENERATION');
+      event.target.value = '';
+    };
+    reader.onerror = () => {
+      setUploadError('Could not read the selected file. Please try another file.');
+      event.target.value = '';
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleGenerateCopy = async () => {
     const factsheet = project.assets.find(a => a.type === 'factsheet')?.content || 'No factsheet available.';
-    if (!keywords || !postType) return;
+    if (!postType) return;
+    if (!keywords.trim()) {
+        setGenerationStatus('Enter keywords or a creative focus before generating copy.');
+        return;
+    }
     setIsGenerating(true);
     setGenerationStatus('Generating post copy...');
     try {
         const masterPrompt = masterPrompts[postType];
         const generatedText = await generatePostCopy(masterPrompt, keywords, factsheet, platform, selectedAsset?.name);
         setPostText(generatedText);
+        setGenerationStatus('Copy generated. You can edit it before saving or submitting.');
     } catch (error) {
         setGenerationStatus(error instanceof Error ? error.message : 'Failed to generate copy.');
     } finally {
         setIsGenerating(false);
-        setGenerationStatus('');
     }
   };
   
@@ -136,12 +173,17 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
     setIsGenerating(true);
     setGenerationStatus('Enhancing image...');
     try {
-        const enhancedImageUrl = await enhanceImage(selectedAsset.url, keywords);
+        const selectedTemplate = brandingConfig.templates.find(template => template.id === selectedTemplateId);
+        const enhancedImageUrl = await enhanceImage(selectedAsset.url, keywords, {
+            projectName: project.name,
+            developer: project.developer,
+            templateName: selectedTemplate?.name,
+        });
         const newAsset = { ...selectedAsset, url: enhancedImageUrl, id: `enhanced-${Date.now()}` };
         setSelectedAsset(newAsset);
         setGenerationStatus('Image enhanced successfully!');
     } catch (error) {
-        setGenerationStatus(error instanceof Error ? error.message : 'Failed to enhance image.');
+        setGenerationStatus(error instanceof Error ? error.message : 'Failed to enhance image. The original image is still available for the template preview.');
     } finally {
         setIsGenerating(false);
     }
@@ -177,6 +219,8 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
       postText,
       imageUrl: postType === PostType.Image ? selectedAsset?.url : undefined,
       videoUrl: postType === PostType.Video ? (generatedVideoUrl || selectedAsset?.url) : undefined,
+      ctaUrl,
+      brandTemplateId: selectedTemplateId,
     };
 
     try {
@@ -217,12 +261,18 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
         return (
           <div className="p-6 flex flex-col gap-4">
             <h3 className="text-xl font-bold text-brand-text">Select a visual asset for your post</h3>
+            {uploadError && <div className="rounded-md bg-red-500/20 p-3 text-sm font-semibold text-red-200">{uploadError}</div>}
             <div className="grid grid-cols-3 md:grid-cols-5 gap-4 overflow-y-auto max-h-96">
-                <button onClick={() => fileInputRef.current?.click()} className="aspect-square bg-brand-primary rounded-lg flex flex-col items-center justify-center text-brand-light border-2 border-dashed border-brand-accent hover:border-brand-gold transition-colors">
+                <label className="relative aspect-square bg-brand-primary rounded-lg flex cursor-pointer flex-col items-center justify-center text-brand-light border-2 border-dashed border-brand-accent hover:border-brand-gold hover:text-brand-text transition-colors">
                     <UploadIcon className="w-10 h-10 mb-2"/>
                     <span className="text-sm font-semibold">Upload {postType}</span>
-                </button>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept={postType === PostType.Image ? 'image/*' : 'video/*'} />
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      accept={postType === PostType.Image ? 'image/png,image/jpeg,image/webp,image/gif' : 'video/mp4,video/webm,video/quicktime'}
+                    />
+                </label>
 
               {assets.map(asset => (
                 <button key={asset.id} onClick={() => { setSelectedAsset(asset); setStep('CONTENT_GENERATION'); }} className="relative aspect-square rounded-lg overflow-hidden ring-2 ring-transparent hover:ring-brand-gold transition-all group">
@@ -250,13 +300,62 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
                     <div>
                         <label htmlFor="keywords" className="block text-sm font-medium text-brand-light mb-1">Keywords / Focus</label>
                         <textarea id="keywords" value={keywords} onChange={e => setKeywords(e.target.value)} placeholder="e.g., family amenities, panoramic sea views, limited time offer" className="w-full bg-brand-primary border border-brand-accent rounded-md p-2 focus:ring-2 focus:ring-brand-gold text-brand-text" rows={2}/>
+                        <p className="mt-1 text-xs text-brand-light">Used by Generate Copy and Enhance Image.</p>
+                    </div>
+
+                    <div>
+                        <label htmlFor="platform" className="block text-sm font-medium text-brand-light mb-1">Platform</label>
+                        <select
+                            id="platform"
+                            value={platform}
+                            onChange={e => setPlatform(e.target.value as SocialPlatform)}
+                            className="w-full bg-brand-primary border border-brand-accent rounded-md p-2 focus:ring-2 focus:ring-brand-gold text-brand-text"
+                        >
+                            {Object.values(SocialPlatform).map(option => (
+                                <option key={option} value={option}>{option}</option>
+                            ))}
+                        </select>
                     </div>
 
                     {postType === PostType.Image && (
-                        <button onClick={handleEnhanceImage} disabled={isGenerating || !selectedAsset} className="w-full bg-brand-accent text-brand-text font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 hover:bg-brand-light hover:text-brand-primary disabled:opacity-50">
-                            {isGenerating && generationStatus.includes('Enhancing') ? <div className="w-4 h-4 border-2 border-t-transparent border-current rounded-full animate-spin"></div> : <SparklesIcon className="w-4 h-4" />}
-                            Enhance Image with AI
-                        </button>
+                        <>
+                            <div>
+                                <label htmlFor="ctaUrl" className="block text-sm font-medium text-brand-light mb-1">Landing Page / CTA URL</label>
+                                <input
+                                    id="ctaUrl"
+                                    value={ctaUrl}
+                                    onChange={e => setCtaUrl(e.target.value)}
+                                    placeholder="/projects/avior"
+                                    className="w-full bg-brand-primary border border-brand-accent rounded-md p-2 focus:ring-2 focus:ring-brand-gold text-brand-text"
+                                />
+                                <p className="mt-1 text-xs text-brand-light">Used as the post link/caption destination. Text inside an image is not clickable on Instagram/Facebook.</p>
+                            </div>
+                            <div>
+                                <p className="block text-sm font-medium text-brand-light mb-2">Brand Template</p>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {brandingConfig.templates.map(template => (
+                                        <button
+                                            key={template.id}
+                                            type="button"
+                                            onClick={() => setSelectedTemplateId(template.id)}
+                                            className={`rounded-md border p-3 text-left transition-colors ${
+                                                selectedTemplateId === template.id
+                                                    ? 'border-brand-gold bg-brand-gold/15 text-brand-text'
+                                                    : 'border-brand-accent bg-brand-primary text-brand-light hover:border-brand-gold hover:text-brand-text'
+                                            }`}
+                                        >
+                                            <span className="block text-sm font-bold">{template.name}</span>
+                                            <span className="mt-1 block text-xs opacity-80">{template.bestUse}</span>
+                                            <span className="mt-1 block text-xs opacity-70">{template.description}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <button onClick={handleEnhanceImage} disabled={isGenerating || !selectedAsset || !keywords.trim()} className="w-full bg-brand-accent text-brand-text font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 hover:bg-brand-light hover:text-brand-primary disabled:opacity-50 disabled:cursor-not-allowed">
+                                {isGenerating && generationStatus.includes('Enhancing') ? <div className="w-4 h-4 border-2 border-t-transparent border-current rounded-full animate-spin"></div> : <SparklesIcon className="w-4 h-4" />}
+                                Enhance Image with AI
+                            </button>
+                        </>
                     )}
                     
                     {postType === PostType.Video && (
@@ -286,7 +385,7 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
                     <div className="bg-brand-primary border border-brand-accent rounded-lg p-4 w-full max-w-md mx-auto">
                         {/* Header */}
                         <div className="flex items-center gap-3 mb-3">
-                            <img src={brandingConfig.logoUrl} alt="Logo" className="w-10 h-10 rounded-full object-cover" />
+                            <img src={brandingConfig.logoUrl} alt="Logo" className="w-10 h-10 object-contain bg-[#F5F0E6] p-1 rounded-sm" />
                             <div>
                                 <p className="font-bold text-sm text-brand-text">{brandingConfig.brandName}</p>
                                 <p className="text-xs text-brand-light flex items-center gap-1">
@@ -304,7 +403,14 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
                         )}
                         {/* Media */}
                         {postType === PostType.Image && selectedAsset && (
-                            <BrandOverlayPreview imageSrc={selectedAsset.url} projectName={project.name} platform={platform} />
+                            <BrandOverlayPreview
+                                imageSrc={selectedAsset.url}
+                                projectName={project.name}
+                                developer={project.developer}
+                                platform={platform}
+                                templateId={selectedTemplateId}
+                                ctaUrl={ctaUrl}
+                            />
                         )}
                         {postType === PostType.Video && (
                             <div className="w-full aspect-video bg-brand-secondary rounded-lg flex items-center justify-center text-brand-light border border-brand-accent">
@@ -321,9 +427,9 @@ const ContentCreationModal: React.FC<ContentCreationModalProps> = ({ isOpen, onC
                         )}
                          {/* Footer/Actions */}
                         <div className="mt-3 pt-2 border-t border-brand-accent flex justify-around text-sm font-semibold text-brand-light">
-                            <button className="flex-1 p-2 rounded-md hover:bg-brand-secondary">Like</button>
-                            <button className="flex-1 p-2 rounded-md hover:bg-brand-secondary">Comment</button>
-                            <button className="flex-1 p-2 rounded-md hover:bg-brand-secondary">Share</button>
+                            <button type="button" disabled title="Preview only" className="flex-1 p-2 rounded-md cursor-default opacity-80">Like</button>
+                            <button type="button" disabled title="Preview only" className="flex-1 p-2 rounded-md cursor-default opacity-80">Comment</button>
+                            <button type="button" disabled title="Preview only" className="flex-1 p-2 rounded-md cursor-default opacity-80">Share</button>
                         </div>
                     </div>
                 </div>

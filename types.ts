@@ -45,6 +45,7 @@ export interface DriveProject {
   name: string;
   developer: string;
   assets: DriveAsset[];
+  routePath?: string;
 }
 
 export enum SocialPlatform {
@@ -82,6 +83,8 @@ export interface ContentPost {
   postText: string;
   imageUrl?: string;
   videoUrl?: string;
+  ctaUrl?: string;
+  brandTemplateId?: string;
 }
 
 export interface MarketReportResult {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ContentPost, DriveProject, PostStatus, User, UserRole } from '../types';
-import { getProjectAssets } from '../services/googleDriveService';
+import { getContentStudioProjectAssets } from '../services/contentProjectService';
 import { getScheduledPosts, updateContentPost } from '../services/apiService';
 import ContentCreationModal from './ContentCreationModal';
 import { ImageIcon } from './icons/ImageIcon';
@@ -41,7 +41,7 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ projectId, currentUser,
     try {
       setIsLoading(true);
       const [projectData, scheduledPosts] = await Promise.all([
-        getProjectAssets(projectId),
+        getContentStudioProjectAssets(projectId),
         getScheduledPosts(),
       ]);
       setProject(projectData || null);
@@ -151,7 +151,7 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ projectId, currentUser,
 
   return (
     <>
-      <div className={`grid gap-2 ${viewMode === 'FourWeek' ? 'grid-cols-4' : 'grid-cols-7'}`}>
+      <div className="grid grid-cols-7 gap-2">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
           <div key={day} className="text-center font-bold text-brand-light text-sm mb-2">{day}</div>
         ))}
