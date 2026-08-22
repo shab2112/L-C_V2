@@ -163,7 +163,7 @@ const readApiJson = async (response: Response, label: string) => {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error(`${label} returned a non-JSON response (${response.status}). Check that the Node API is running on port 3001.`);
+    throw new Error(`${label} returned a non-JSON response (${response.status}). Check that the deployed API route exists and is returning JSON.`);
   }
 
   if (!response.ok) {
